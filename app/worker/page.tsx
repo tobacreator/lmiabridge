@@ -28,8 +28,15 @@ export default function WorkerOnboarding() {
     desiredJobTitle: '',
     salaryExpectation: 60000,
     availability: '',
-    inCanada: false
+    inCanada: false,
+    institutionName: '',
+    currentJobTitle: '',
+    currentEmployer: '',
+    yearsExperience: 0,
+    technicalSkills: [] as string[],
+    professionalSummary: '',
   });
+  const [skillInput, setSkillInput] = useState('');
 
   const [agentStatus, setAgentStatus] = useState<'idle' | 'running' | 'complete' | 'error'>('idle');
   const [agentMessage, setAgentMessage] = useState('');
@@ -97,11 +104,44 @@ export default function WorkerOnboarding() {
       }
 
       setAgentStatus('complete');
-      setAgentMessage('Found matching job postings. Synchronizing with LMIABridge database...');
+      setAgentMessage('Found matching job postings. Saving your profile...');
       
-      // Small delay for UX before redirect
-      await new Promise(r => globalThis.setTimeout(r, 1200));
-      router.push(`/worker/matches?noc=${formData.nocCode}&province=${formData.province}`);
+      // Save worker profile to MongoDB
+      let workerId = '';
+      try {
+        const saveRes = await fetch('/api/workers/save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: formData.name,
+            email: formData.email,
+            nocCode: formData.nocCode,
+            country: formData.country,
+            languageScore: String(formData.languageScore),
+            educationLevel: formData.educationLevel,
+            desiredProvince: formData.province,
+            salaryExpectation: formData.salaryExpectation,
+            currentJobTitle: formData.currentJobTitle,
+            currentEmployer: formData.currentEmployer,
+            yearsExperience: formData.yearsExperience,
+            technicalSkills: formData.technicalSkills,
+            institutionName: formData.institutionName,
+            professionalSummary: formData.professionalSummary,
+          })
+        });
+        if (saveRes.ok) {
+          const saveData = await saveRes.json();
+          workerId = saveData.workerId;
+        }
+      } catch (e) {
+        console.error('[Worker Save] Error:', e);
+      }
+
+      setAgentMessage('Redirecting to match results...');
+      await new Promise(r => globalThis.setTimeout(r, 800));
+      const params = new URLSearchParams({ noc: formData.nocCode, province: formData.province });
+      if (workerId) params.set('workerId', workerId);
+      router.push(`/worker/matches?${params.toString()}`);
 
     } catch (error) {
       setAgentStatus('error');
@@ -214,6 +254,48 @@ export default function WorkerOnboarding() {
                   <option>PhD</option>
                 </select>
               </div>
+              <div className="space-y-2">
+                <label className="text-xs font-mono text-muted uppercase tracking-wider">Institution / University <span className="text-muted/50">(optional)</span></label>
+                <input 
+                  type="text" 
+                  className="w-full bg-bg border border-border rounded-lg px-4 py-3 focus:border-accent-blue outline-none transition-colors"
+                  placeholder="University of Lagos"
+                  value={formData.institutionName}
+                  onChange={(e) => setFormData({...formData, institutionName: e.target.value})}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-mono text-muted uppercase tracking-wider">Current Job Title <span className="text-red-400">*</span></label>
+                <input 
+                  type="text" 
+                  className="w-full bg-bg border border-border rounded-lg px-4 py-3 focus:border-accent-blue outline-none transition-colors"
+                  placeholder="Senior Software Engineer"
+                  value={formData.currentJobTitle}
+                  onChange={(e) => setFormData({...formData, currentJobTitle: e.target.value})}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-mono text-muted uppercase tracking-wider">Current Employer <span className="text-red-400">*</span></label>
+                <input 
+                  type="text" 
+                  className="w-full bg-bg border border-border rounded-lg px-4 py-3 focus:border-accent-blue outline-none transition-colors"
+                  placeholder="Andela"
+                  value={formData.currentEmployer}
+                  onChange={(e) => setFormData({...formData, currentEmployer: e.target.value})}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-mono text-muted uppercase tracking-wider">Years of Experience <span className="text-red-400">*</span></label>
+                <input 
+                  type="number" 
+                  min="0"
+                  max="50"
+                  className="w-full bg-bg border border-border rounded-lg px-4 py-3 focus:border-accent-blue outline-none transition-colors font-mono"
+                  placeholder="5"
+                  value={formData.yearsExperience || ''}
+                  onChange={(e) => setFormData({...formData, yearsExperience: parseInt(e.target.value) || 0})}
+                />
+              </div>
               <div className="space-y-4 col-span-2">
                 <div className="flex justify-between">
                   <label className="text-xs font-mono text-muted uppercase tracking-wider">Language Proficiency (CLB Score)</label>
@@ -237,7 +319,13 @@ export default function WorkerOnboarding() {
             </div>
             <div className="flex justify-end mt-8">
               <button 
-                onClick={() => setStep(2)}
+                onClick={() => {
+                  if (!formData.currentJobTitle.trim() || !formData.currentEmployer.trim() || !formData.yearsExperience) {
+                    alert('Please fill in Current Job Title, Current Employer, and Years of Experience before proceeding.');
+                    return;
+                  }
+                  setStep(2);
+                }}
                 className="bg-accent-blue hover:bg-blue-600 text-bg font-bold px-8 py-3 rounded-lg transition-all"
               >
                 NEXT_STEP
@@ -289,6 +377,48 @@ export default function WorkerOnboarding() {
                 {formData.salaryExpectation > 0 && (
                   <div className="text-xs text-accent-green font-mono">${formData.salaryExpectation.toLocaleString()}/year</div>
                 )}
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-mono text-muted uppercase tracking-wider">Technical Skills <span className="text-muted/50">(max 8)</span></label>
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {formData.technicalSkills.map((skill, i) => (
+                    <span key={i} className="inline-flex items-center gap-1 bg-accent-blue/10 border border-accent-blue/30 text-accent-blue text-xs font-mono px-2.5 py-1 rounded-lg">
+                      {skill}
+                      <button type="button" onClick={() => setFormData({...formData, technicalSkills: formData.technicalSkills.filter((_, idx) => idx !== i)})} className="hover:text-red-400 ml-1">&times;</button>
+                    </span>
+                  ))}
+                </div>
+                <input 
+                  type="text" 
+                  className="w-full bg-bg border border-border rounded-lg px-4 py-3 focus:border-accent-blue outline-none transition-colors"
+                  placeholder="Type a skill and press Enter"
+                  value={skillInput}
+                  onChange={(e) => setSkillInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      const val = skillInput.trim();
+                      if (val && formData.technicalSkills.length < 8 && !formData.technicalSkills.includes(val)) {
+                        setFormData({...formData, technicalSkills: [...formData.technicalSkills, val]});
+                        setSkillInput('');
+                      }
+                    }
+                  }}
+                />
+                <p className="text-[10px] text-muted mt-1">Press Enter after each skill</p>
+              </div>
+              <div className="space-y-2 col-span-2">
+                <div className="flex justify-between">
+                  <label className="text-xs font-mono text-muted uppercase tracking-wider">Professional Summary <span className="text-muted/50">(optional)</span></label>
+                  <span className="text-[10px] text-muted font-mono">{formData.professionalSummary.length}/500</span>
+                </div>
+                <textarea
+                  className="w-full bg-bg border border-border rounded-lg px-4 py-3 focus:border-accent-blue outline-none transition-colors h-24 resize-none"
+                  placeholder="Briefly describe your experience for Canadian employers..."
+                  maxLength={500}
+                  value={formData.professionalSummary}
+                  onChange={(e) => setFormData({...formData, professionalSummary: e.target.value})}
+                />
               </div>
               <div className="space-y-2">
                 <label className="text-xs font-mono text-muted uppercase tracking-wider">Earliest Start Date</label>

@@ -18,9 +18,8 @@ export async function GET() {
     
     const verificationStatus = employer?.verificationStatus || 'pending';
     const tradingName = employer?.tradingName || null;
-    const companyName = tradingName 
-      ? `${tradingName} (${employer?.companyName})` 
-      : (employer?.companyName || null);
+    const companyName = employer?.companyName || null;
+    const employerId = employer?._id?.toString() || null;
 
     // Get job details for the most recent posting
     const latestJob = employer ? await JobPosting.findOne({ employer: employer._id }).sort({ createdAt: -1 }).lean() as any : null;
@@ -56,6 +55,8 @@ export async function GET() {
       gtsEligible,
       verificationStatus,
       companyName,
+      tradingName,
+      employerId,
       jobTitle,
       nocCode,
       reputationScore,
@@ -68,6 +69,8 @@ export async function GET() {
       gtsEligible: 0,
       verificationStatus: 'pending',
       companyName: null,
+      tradingName: null,
+      employerId: null,
       reputationScore: 0,
       reputationLabel: 'New Account',
     }, { status: 500 });

@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import LMIAComplianceTab from './LMIAComplianceTab';
 
 interface Worker {
@@ -47,7 +48,11 @@ interface AgentRun {
   duration: string;
 }
 
-export default function EmployerDashboard() {
+function DashboardContent() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const employerId = searchParams.get('id');
+
   const [activeTab, setActiveTab] = useState('workers');
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [agentRuns, setAgentRuns] = useState<AgentRun[]>([]);
@@ -85,10 +90,12 @@ export default function EmployerDashboard() {
     gtsEligible: 0,
     verificationStatus: 'pending',
     companyName: null as string | null,
+    tradingName: null as string | null,
     jobTitle: null as string | null,
     nocCode: null as string | null,
     reputationScore: 0,
     reputationLabel: 'New Account',
+    employerId: null as string | null,
   });
 
   const repScore = stats.reputationScore;
@@ -108,7 +115,6 @@ export default function EmployerDashboard() {
     const fetchAll = async () => {
       setLoading(true);
       try {
-        // Fetch workers, stats, and agent activity in parallel from live APIs
         const [workersRes, statsRes, activityRes] = await Promise.allSettled([
           fetch('/api/workers').then(r => r.json()),
           fetch('/api/dashboard/stats').then(r => r.json()),
@@ -120,6 +126,10 @@ export default function EmployerDashboard() {
         }
         if (statsRes.status === 'fulfilled') {
           setStats(statsRes.value);
+          // 3A: If no employerId in URL but we have one from stats, redirect
+          if (statsRes.value.employerId && !employerId) {
+            router.replace(`/employer/dashboard?id=${statsRes.value.employerId}`);
+          }
         }
         if (activityRes.status === 'fulfilled' && Array.isArray(activityRes.value)) {
           setAgentRuns(activityRes.value);
@@ -132,7 +142,7 @@ export default function EmployerDashboard() {
     };
 
     fetchAll();
-  }, []);
+  }, [employerId, router]);
 
   const tabs = [
     { id: 'workers', label: 'Matched Workers', icon: '👤' },
@@ -156,12 +166,15 @@ export default function EmployerDashboard() {
               </div>
               <div>
                 <div className="flex items-center gap-2 mb-2">
-                  <h1 className="text-2xl font-bold text-white font-mono tracking-tighter">{stats.companyName || 'LMIA_BRIDGE_HQ'}</h1>
+                  <h1 className="text-2xl font-bold text-white font-mono tracking-tighter">{stats.tradingName || stats.companyName || 'LMIA_BRIDGE_HQ'}</h1>
                   <span className="bg-accent-green/10 text-accent-green text-[10px] font-bold px-2 py-0.5 rounded border border-accent-green/20 uppercase">
                     TINYFISH_VERIFIED ✓
                   </span>
                 </div>
                 <div className="flex items-center gap-3">
+                  {stats.tradingName && stats.companyName && stats.tradingName !== stats.companyName && (
+                    <span className="text-muted text-xs">({stats.companyName})</span>
+                  )}
                   <p className="text-muted text-xs tracking-widest uppercase">Enterprise Compliance Control</p>
                 </div>
               </div>
@@ -420,6 +433,24 @@ export default function EmployerDashboard() {
                     {selectedWorker.matchScore}<span className="text-lg text-muted">/100</span>
                   </span>
                 </div>
+
+                {/* Score Legend + LMIA Viable Badge */}
+                <div className="mt-4 flex items-center justify-between">
+                  <div className="flex items-center gap-3 text-[10px] font-mono text-muted">
+                    <span><span className="inline-block w-2 h-2 rounded-sm bg-accent-green mr-1" />80-100 Excellent</span>
+                    <span><span className="inline-block w-2 h-2 rounded-sm bg-accent-amber mr-1" />65-79 Good</span>
+                    <span><span className="inline-block w-2 h-2 rounded-sm bg-red-400 mr-1" />Below 65 Review</span>
+                  </div>
+                  {selectedWorker.matchDetails && (
+                    <span className={`px-2.5 py-1 rounded text-[10px] font-bold uppercase ${
+                      selectedWorker.matchDetails.lmiaViable
+                        ? 'bg-accent-green/10 text-accent-green border border-accent-green/30'
+                        : 'bg-red-400/10 text-red-400 border border-red-400/30'
+                    }`}>
+                      {selectedWorker.matchDetails.lmiaViable ? 'LMIA VIABLE' : 'LMIA REVIEW NEEDED'}
+                    </span>
+                  )}
+                </div>
               </div>
 
               {/* GTS Pathway Selection */}
@@ -549,5 +580,13 @@ export default function EmployerDashboard() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function EmployerDashboard() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="animate-spin w-8 h-8 border-2 border-accent-blue border-t-transparent rounded-full" /></div>}>
+      <DashboardContent />
+    </Suspense>
   );
 }

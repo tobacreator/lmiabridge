@@ -30,12 +30,24 @@ function MatchResultsContent() {
   const searchParams = useSearchParams();
   const noc = searchParams.get('noc');
   const province = searchParams.get('province');
+  const workerId = searchParams.get('workerId');
   
   const [matches, setMatches] = useState<JobMatch[]>([]);
   const [loading, setLoading] = useState(true);
   const [generatingPack, setGeneratingPack] = useState<string | null>(null);
   const [packError, setPackError] = useState<string | null>(null);
   const [compliancePackages, setCompliancePackages] = useState<Record<string, any>>({});
+  const [copied, setCopied] = useState(false);
+
+  const profileUrl = workerId ? `${typeof window !== 'undefined' ? window.location.origin : ''}/worker/profile/${workerId}` : null;
+
+  const copyProfileUrl = () => {
+    if (profileUrl) {
+      navigator.clipboard.writeText(profileUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
 
   useEffect(() => {
     const fetchMatches = async () => {
@@ -122,6 +134,19 @@ function MatchResultsContent() {
         </div>
       </div>
 
+      {/* Profile Save Banner */}
+      {profileUrl && (
+        <div className="mb-8 bg-accent-green/10 border border-accent-green/30 rounded-xl p-4 flex items-center justify-between">
+          <div>
+            <p className="text-sm font-bold text-accent-green mb-1">Your profile has been saved!</p>
+            <p className="text-xs text-muted">Bookmark this link to return: <span className="font-mono text-primary">{profileUrl}</span></p>
+          </div>
+          <button onClick={copyProfileUrl} className="bg-accent-green hover:bg-green-500 text-bg font-bold px-4 py-2 rounded-lg text-xs uppercase tracking-widest transition-colors whitespace-nowrap ml-4">
+            {copied ? '✓ Copied!' : 'Copy Link'}
+          </button>
+        </div>
+      )}
+
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           {[1, 2].map(i => (
@@ -174,6 +199,22 @@ function MatchResultsContent() {
                 <ScoreBar label="Region Match" score={job.matchDetails.regionMatch} delay={400} />
                 <ScoreBar label="Language Score" score={job.matchDetails.languageScore} delay={550} />
                 <ScoreBar label="Education Match" score={job.matchDetails.educationMatch} delay={700} />
+              </div>
+
+              {/* Score Legend + LMIA Viable Badge */}
+              <div className="flex items-center justify-between mb-6 px-1">
+                <div className="flex items-center gap-3 text-[10px] font-mono text-muted">
+                  <span><span className="inline-block w-2 h-2 rounded-sm bg-accent-green mr-1" />80-100 Excellent</span>
+                  <span><span className="inline-block w-2 h-2 rounded-sm bg-accent-amber mr-1" />65-79 Good</span>
+                  <span><span className="inline-block w-2 h-2 rounded-sm bg-red-400 mr-1" />Below 65 Review</span>
+                </div>
+                <span className={`px-2.5 py-1 rounded text-[10px] font-bold uppercase ${
+                  job.matchDetails.lmiaViable 
+                    ? 'bg-accent-green/10 text-accent-green border border-accent-green/30' 
+                    : 'bg-red-400/10 text-red-400 border border-red-400/30'
+                }`}>
+                  {job.matchDetails.lmiaViable ? 'LMIA VIABLE' : 'LMIA REVIEW NEEDED'}
+                </span>
               </div>
 
               <div className="relative z-10">

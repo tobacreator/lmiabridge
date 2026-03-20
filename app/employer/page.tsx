@@ -152,6 +152,7 @@ export default function EmployerOnboarding() {
       // Consume the SSE stream from TinyFish
       const reader = res.body?.getReader();
       const decoder = new TextDecoder();
+      let capturedEmployerId = '';
 
       if (reader) {
         let done = false;
@@ -166,6 +167,9 @@ export default function EmployerOnboarding() {
               if (trimmed.startsWith('data: ')) {
                 try {
                   const data = JSON.parse(trimmed.slice(6));
+                  if (data.type === 'EMPLOYER_ID' && data.employerId) {
+                    capturedEmployerId = data.employerId;
+                  }
                   if (data.type === 'STEP' || data.step) {
                     setAgentMessage(`Verifying: ${data.step || data.message || 'Checking records...'}`);
                   }
@@ -190,7 +194,8 @@ export default function EmployerOnboarding() {
       setAgentMessage('Verification complete. Redirecting to compliance dashboard...');
       
       await new Promise(r => globalThis.setTimeout(r, 1200));
-      router.push('/employer/dashboard');
+      const dashUrl = capturedEmployerId ? `/employer/dashboard?id=${capturedEmployerId}` : '/employer/dashboard';
+      router.push(dashUrl);
 
     } catch (error) {
       setAgentStatus('error');

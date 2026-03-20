@@ -116,12 +116,14 @@ Only return found: false if there are absolutely zero results after trying multi
 
           try {
             await connectToDatabase();
-            await Employer.findOneAndUpdate(
+            const emp = await Employer.findOneAndUpdate(
               { companyName },
               { verificationStatus, cra_bn: craBN || resultJson.corporationNumber },
-              { upsert: true }
+              { upsert: true, new: true }
             );
-            console.log(`[Verify Employer] Status: ${verificationStatus} for ${companyName}`);
+            console.log(`[Verify Employer] Status: ${verificationStatus} for ${companyName}, ID: ${emp._id}`);
+            // Emit employerId so frontend can redirect with it
+            await safeWrite(`data: ${JSON.stringify({ type: 'EMPLOYER_ID', employerId: emp._id.toString() })}\n\n`);
           } catch (dbErr) {
             console.error('[Verify Employer] DB Error:', dbErr);
           }
