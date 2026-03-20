@@ -13,7 +13,7 @@ async function seedAndMatch() {
     const workerRes = await workers.insertOne({
         name: 'Jane Doe',
         email: `jane${Date.now()}@test.com`,
-        nocCode: '21231',
+        nocCode: '21232',
         country: 'India',
         createdAt: new Date()
     });
@@ -29,7 +29,7 @@ async function seedAndMatch() {
 
     const jobRes = await jobs.insertOne({
         jobTitle: 'Senior Dev',
-        nocCode: '21231',
+        nocCode: '21232',
         wage: 50,
         province: 'ON',
         employer: empRes.insertedId,

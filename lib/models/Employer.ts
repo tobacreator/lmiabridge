@@ -2,6 +2,7 @@ import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IEmployer extends Document {
   companyName: string;
+  tradingName?: string;
   email: string;
   cra_bn?: string;
   province: string;
@@ -10,12 +11,14 @@ export interface IEmployer extends Document {
   nocCode?: string;
   offeredWage?: number;
   employeeCount?: number;
+  advertisingStartDate?: Date;
   verificationStatus: 'pending' | 'verified' | 'failed';
   createdAt: Date;
 }
 
 const EmployerSchema = new Schema<IEmployer>({
   companyName: { type: String, required: true },
+  tradingName: { type: String },
   email: { type: String, required: true, unique: true },
   cra_bn: { type: String },
   province: { type: String, required: true },
@@ -24,6 +27,7 @@ const EmployerSchema = new Schema<IEmployer>({
   nocCode: { type: String },
   offeredWage: { type: Number },
   employeeCount: { type: Number },
+  advertisingStartDate: { type: Date, default: Date.now },
   verificationStatus: { type: String, enum: ['pending', 'verified', 'failed'], default: 'pending' },
   createdAt: { type: Date, default: Date.now }
 });

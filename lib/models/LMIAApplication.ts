@@ -21,6 +21,24 @@ export interface ILMIAApplication extends Document {
   compliancePack?: any;
   evidencePackUrl?: string;
   gtsEligible: boolean;
+  lmiaPathway?: 'gts' | 'standard' | null;
+  complianceChecklist?: Array<{
+    itemId: string;
+    label: string;
+    checked: boolean;
+    checkedAt?: Date;
+    checkedBy?: string;
+  }>;
+  canadianApplicantLog?: Array<{
+    applicantName: string;
+    dateApplied: Date;
+    reasonNotSuitable: string;
+    loggedAt: Date;
+  }>;
+  lmiaSubmittedAt?: Date;
+  lmiaReferenceNumber?: string;
+  lmiaDecision?: 'positive' | 'negative' | null;
+  lmiaDecisionDate?: Date;
   createdAt: Date;
 }
 
@@ -45,6 +63,24 @@ const LMIAApplicationSchema = new Schema<ILMIAApplication>({
   compliancePack: { type: Object },
   evidencePackUrl: { type: String },
   gtsEligible: { type: Boolean, default: false },
+  lmiaPathway: { type: String, enum: ['gts', 'standard'], default: null },
+  complianceChecklist: [{
+    itemId: { type: String },
+    label: { type: String },
+    checked: { type: Boolean, default: false },
+    checkedAt: { type: Date },
+    checkedBy: { type: String }
+  }],
+  canadianApplicantLog: [{
+    applicantName: { type: String },
+    dateApplied: { type: Date },
+    reasonNotSuitable: { type: String },
+    loggedAt: { type: Date, default: Date.now }
+  }],
+  lmiaSubmittedAt: { type: Date },
+  lmiaReferenceNumber: { type: String },
+  lmiaDecision: { type: String, enum: ['positive', 'negative'], default: null },
+  lmiaDecisionDate: { type: Date },
   createdAt: { type: Date, default: Date.now }
 });
 

@@ -17,7 +17,10 @@ export async function GET() {
     const employer = await Employer.findOne({}).sort({ createdAt: -1 }).lean() as any;
     
     const verificationStatus = employer?.verificationStatus || 'pending';
-    const companyName = employer?.companyName || null;
+    const tradingName = employer?.tradingName || null;
+    const companyName = tradingName 
+      ? `${tradingName} (${employer?.companyName})` 
+      : (employer?.companyName || null);
 
     // Get job details for the most recent posting
     const latestJob = employer ? await JobPosting.findOne({ employer: employer._id }).sort({ createdAt: -1 }).lean() as any : null;
@@ -29,11 +32,15 @@ export async function GET() {
     if (verificationStatus === 'verified') reputationScore += 40;
     else if (verificationStatus === 'pending') reputationScore += 10;
 
-    // Check compliance status across applications
-    const compliantApps = await LMIAApplication.countDocuments({ complianceStatus: 'compliant' });
+    // Check compliance status across applications (viable = compliant in our system)
+    const compliantApps = await LMIAApplication.countDocuments({ 
+      complianceStatus: { $in: ['compliant', 'viable'] } 
+    });
     if (compliantApps > 0) reputationScore += 30;
     else {
-      const pendingApps = await LMIAApplication.countDocuments({ complianceStatus: 'pending' });
+      const pendingApps = await LMIAApplication.countDocuments({ 
+        complianceStatus: { $in: ['pending', 'in_progress'] } 
+      });
       if (pendingApps > 0) reputationScore += 20;
     }
 

@@ -24,10 +24,14 @@ export async function POST(req: NextRequest) {
     }
 
     // 2. Run Groq Compliance Pack Generation
+    const employer = application.employer as any;
+    const advertisingStartDate = employer.advertisingStartDate || new Date();
+    
     const prompt = compliancePackPrompt(
-      application.employer as any,
+      employer,
       application.jobPosting as any,
-      application.worker as any
+      application.worker as any,
+      advertisingStartDate
     );
     
     console.log(`[Compliance] Generating pack for application ${lmiaApplicationId}...`);

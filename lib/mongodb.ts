@@ -4,6 +4,10 @@ import '@/lib/models/Employer';
 import '@/lib/models/JobPosting';
 import '@/lib/models/LMIAApplication';
 
+if (!process.env.MONGODB_URI) {
+  throw new Error('MONGODB_URI is not set in environment variables');
+}
+
 const MONGODB_URI = process.env.MONGODB_URI;
 
 let cached = (global as any).mongoose;

@@ -12,7 +12,7 @@ export async function GET() {
     await connectToDatabase();
 
     // Check if seed data already exists
-    const existingEmployer = await Employer.findOne({ companyName: 'Clio (Themis Solutions Inc.)' });
+    const existingEmployer = await Employer.findOne({ companyName: 'Themis Solutions Inc.' });
     
     if (existingEmployer) {
       // Return existing IDs
@@ -31,13 +31,14 @@ export async function GET() {
 
     // Create Clio employer
     const employer = await Employer.create({
-      companyName: 'Clio (Themis Solutions Inc.)',
+      companyName: 'Themis Solutions Inc.',
+      tradingName: 'Clio',
       email: 'hiring@clio.com',
       cra_bn: '898765432RT0001',
       province: 'ON',
       industry: 'Legal Technology / SaaS',
       jobTitle: 'Software Developer',
-      nocCode: '21231',
+      nocCode: '21232',
       offeredWage: 110000,
       employeeCount: 900,
       verificationStatus: 'verified',
@@ -46,7 +47,7 @@ export async function GET() {
     // Create Software Developer job posting
     const jobPosting = await JobPosting.create({
       jobTitle: 'Software Developer',
-      nocCode: '21231',
+      nocCode: '21232',
       wage: 52.88, // hourly
       province: 'ON',
       employer: employer._id,
@@ -57,13 +58,26 @@ export async function GET() {
     const worker = await Worker.create({
       name: 'Chidera Obi',
       email: 'chidera.obi@email.com',
-      nocCode: '21231',
-      targetNOC: '21231',
+      nocCode: '21232',
+      targetNOC: '21232',
       country: 'Nigeria',
       languageScore: '11',
       educationLevel: "Bachelor's",
       desiredProvince: 'ON',
       salaryExpectation: 105000,
+    });
+
+    // Create Priya Sharma worker
+    const worker2 = await Worker.create({
+      name: 'Priya Sharma',
+      email: 'priya.sharma@email.com',
+      nocCode: '21232',
+      targetNOC: '21232',
+      country: 'India',
+      languageScore: '10',
+      educationLevel: "Master's Degree",
+      desiredProvince: 'ON',
+      salaryExpectation: 98000,
     });
 
     // Create LMIA Application with pre-scored match
@@ -79,7 +93,7 @@ export async function GET() {
         languageScore: 95,
         educationMatch: 95,
         totalScore: 96,
-        summary: 'Exceptional match. Chidera Obi is a senior software engineer with 5 years of Ruby on Rails and React experience, an exact NOC 21231 match for Clio\'s Software Developer position in Toronto. Wage offered ($110,000) exceeds candidate expectation ($105,000). Both targeting Ontario. CLB 11 native English proficiency. Bachelor\'s in Computer Science from University of Lagos. GTS Category B eligible for 14-day processing.',
+        summary: 'Exceptional match. Chidera Obi is a senior software engineer with 5 years of Ruby on Rails and React experience, an exact NOC 21232 match for Clio\'s Software Developer position in Toronto. Wage offered ($110,000) exceeds candidate expectation ($105,000). Both targeting Ontario. CLB 11 native English proficiency. Bachelor\'s in Computer Science from University of Lagos. GTS Category B eligible for 14-day processing.',
         lmiaViable: true,
       },
       complianceStatus: 'viable',
@@ -98,12 +112,33 @@ export async function GET() {
       },
     });
 
+    // Create second LMIA Application for Priya Sharma
+    const application2 = await LMIAApplication.create({
+      employer: employer._id,
+      worker: worker2._id,
+      jobPosting: jobPosting._id,
+      matchScore: 78,
+      matchDetails: {
+        nocAlignment: 100,
+        wageCompliance: 85,
+        regionMatch: 100,
+        languageScore: 80,
+        educationMatch: 100,
+        totalScore: 78,
+        summary: 'Strong match. Priya Sharma holds a Master\'s in Computer Science from IIT Delhi with 3 years of full-stack development experience. Exact NOC 21232 match for Clio\'s Software Developer position. Wage offered ($110,000) exceeds expectation ($98,000). CLB 10 English proficiency. GTS Category B eligible.',
+        lmiaViable: true,
+      },
+      complianceStatus: 'in_progress',
+      gtsEligible: true,
+      advertisingSchedule: [],
+    });
+
     return NextResponse.json({
       message: 'Seed data created successfully',
       employerId: employer._id,
       jobPostingId: jobPosting._id,
-      workerId: worker._id,
-      applicationId: application._id,
+      workers: [worker._id, worker2._id],
+      applications: [application._id, application2._id],
     });
 
   } catch (error: any) {

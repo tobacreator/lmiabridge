@@ -26,7 +26,28 @@ export async function POST(req: NextRequest) {
   try {
     const { companyName, province, craBN } = await req.json();
     const searchUrl = "https://www.ic.gc.ca/app/scr/cc/CorporationsCanada/fdrlCrpSrch.html";
-    const goal = `Search for the company named ${companyName}. Navigate to the search box, enter the company name, submit the form, and return the first result: { found: boolean, registeredName: string, status: string, incorporationDate: string, corporationNumber: string }. If not found, return { found: false }.`;
+    const goal = `Navigate to the search page. In the corporate name search field, enter the LEGAL NAME part of the company — if the input contains brackets like 'Clio (Themis Solutions Inc.)', search for only 'Themis Solutions Inc.' without the trading name.
+
+The company to search for is: ${companyName}
+
+Also try searching for just the first significant word if the full name returns no results.
+
+Look through ALL results on the page carefully.
+If ANY result shows a company name that matches or closely resembles the search term, return it as found.
+
+Return this JSON:
+{
+  found: boolean,
+  registeredName: string,
+  status: string,
+  incorporationDate: string,
+  corporationNumber: string,
+  note: string
+}
+
+If you find a result like 'Themis Solutions Inc.' when searching for 'Clio (Themis Solutions Inc.)', set found: true and use the registered name found.
+
+Only return found: false if there are absolutely zero results after trying multiple search variations.`;
 
     const response = await fetch(TINYFISH_URL, {
       method: 'POST',
@@ -74,21 +95,33 @@ export async function POST(req: NextRequest) {
               try {
                 const data = JSON.parse(trimmed.slice(6));
                 if (data.run_id) runId = data.run_id;
-                if (data.type === 'COMPLETE' || data.resultJson) resultJson = data.resultJson;
+                if (data.type === 'COMPLETE' && data.result) resultJson = data.result;
+                else if (data.resultJson) resultJson = data.resultJson;
               } catch (e) {}
             }
           }
         }
 
         if (resultJson) {
+          // If found is false but a registeredName was returned,
+          // treat it as found — TinyFish found the company but
+          // marked it as not found due to name mismatch
+          if (!resultJson.found && resultJson.registeredName && 
+              resultJson.registeredName.length > 0) {
+            resultJson.found = true;
+            resultJson.note = 'Found under registered legal name: ' + resultJson.registeredName;
+          }
+
+          const verificationStatus = resultJson.found ? 'verified' : 'failed';
+
           try {
             await connectToDatabase();
-            const verificationStatus = resultJson.found ? 'verified' : 'failed';
             await Employer.findOneAndUpdate(
               { companyName },
               { verificationStatus, cra_bn: craBN || resultJson.corporationNumber },
               { upsert: true }
             );
+            console.log(`[Verify Employer] Status: ${verificationStatus} for ${companyName}`);
           } catch (dbErr) {
             console.error('[Verify Employer] DB Error:', dbErr);
           }
@@ -105,7 +138,7 @@ export async function POST(req: NextRequest) {
     })();
 
     return new Response(readable, {
-      headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive' }
+      headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive', 'X-Accel-Buffering': 'no' }
     });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });

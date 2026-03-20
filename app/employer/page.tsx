@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import AgentStatusPanel from '@/components/AgentStatusPanel';
 
@@ -8,10 +8,12 @@ export default function EmployerOnboarding() {
   const router = useRouter();
   const [agentStatus, setAgentStatus] = useState<'idle' | 'running' | 'complete' | 'error'>('idle');
   const [agentMessage, setAgentMessage] = useState('');
+  const agentPanelRef = useRef<HTMLDivElement>(null);
   
-  // Live ESDC wage indicator state
-  const [wageData, setWageData] = useState<{ medianWage: number; currency: string; cached: boolean } | null>(null);
-  const [wageFetching, setWageFetching] = useState(false);
+  // Wage compliance check state
+  const [wageCheckStatus, setWageCheckStatus] = useState<'unchecked' | 'loading' | 'compliant' | 'non-compliant'>('unchecked');
+  const [wageCheckResult, setWageCheckResult] = useState<any>(null);
+  const [runWageCheck, setRunWageCheck] = useState(false);
 
   const [formData, setFormData] = useState({
     companyName: '',
@@ -22,33 +24,30 @@ export default function EmployerOnboarding() {
     nocCode: '',
     wage: '',
     employeeCount: '',
-    advertised: false
+    advertisingStartDate: new Date().toISOString().split('T')[0]
   });
 
-  // Debounced wage lookup when NOC code changes
-  const fetchWageData = useCallback(async (nocCode: string, province: string) => {
-    if (!nocCode || nocCode.length < 4) {
-      setWageData(null);
-      return;
-    }
-    setWageFetching(true);
+  // Manual wage check trigger
+  const handleWageCheck = async () => {
+    setWageCheckStatus('loading');
     try {
       const res = await fetch('/api/agents/wage-lookup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify({ nocCode, province })
+        body: JSON.stringify({ nocCode: formData.nocCode, province: formData.province })
       });
       if (res.ok) {
         const contentType = res.headers.get('content-type') || '';
         if (contentType.includes('application/json')) {
-          // Direct JSON response (cached)
           const data = await res.json();
-          setWageData({ medianWage: data.medianWage || 0, currency: data.currency || 'CAD', cached: !!data.cached });
+          setWageCheckResult(data);
+          const offeredHourly = parseFloat(formData.wage) / 2080;
+          setWageCheckStatus(offeredHourly >= data.medianWage ? 'compliant' : 'non-compliant');
         } else {
-          // SSE stream — consume and extract final result
           const reader = res.body?.getReader();
           const decoder = new TextDecoder();
           let result: any = null;
+          let buffer = '';
           if (reader) {
             let done = false;
             while (!done) {
@@ -56,49 +55,79 @@ export default function EmployerOnboarding() {
               done = streamDone;
               if (value) {
                 const chunk = decoder.decode(value, { stream: true });
-                const lines = chunk.split('\n');
+                buffer += chunk;
+                const lines = buffer.split('\n');
+                buffer = lines.pop() || '';
+                
                 for (const line of lines) {
                   const trimmed = line.trim();
                   if (trimmed.startsWith('data: ')) {
                     try {
                       const data = JSON.parse(trimmed.slice(6));
-                      if (data.resultJson) result = data.resultJson;
-                    } catch (e) {}
+                      console.log('[Wage Check] SSE data:', data);
+                      if (data.type === 'COMPLETE' && data.result) {
+                        result = data.result;
+                      } else if (data.resultJson) {
+                        result = data.resultJson;
+                      }
+                    } catch (e) {
+                      console.log('[Wage Check] Parse error:', e);
+                    }
                   }
                 }
               }
             }
           }
           if (result) {
-            setWageData({ medianWage: result.medianWage || 0, currency: result.currency || 'CAD', cached: false });
+            console.log('[Wage Check] Result found:', result);
+            setWageCheckResult(result);
+            const offeredHourly = parseFloat(formData.wage) / 2080;
+            setWageCheckStatus(offeredHourly >= result.medianWage ? 'compliant' : 'non-compliant');
+          } else {
+            console.log('[Wage Check] No result found, status unchanged');
+            setWageCheckStatus('unchecked');
           }
         }
       }
     } catch (e) {
-      console.error('Wage fetch error:', e);
-    } finally {
-      setWageFetching(false);
+      console.error('Wage check error:', e);
+      setWageCheckStatus('unchecked');
     }
-  }, []);
+  };
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      if (formData.nocCode.length >= 4) {
-        fetchWageData(formData.nocCode, formData.province);
-      }
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [formData.nocCode, formData.province, fetchWageData]);
+    if (runWageCheck && wageCheckStatus === 'unchecked') {
+      handleWageCheck();
+    }
+  }, [runWageCheck]);
+
+  // Check if all required fields are filled for wage check
+  const canRunWageCheck = formData.companyName.trim() !== '' && 
+                          formData.nocCode.length === 5 && 
+                          parseFloat(formData.wage) > 0 && 
+                          formData.province !== '';
 
   // Wage compliance computation
   const offeredWageNum = parseFloat(formData.wage) || 0;
-  const offeredHourly = offeredWageNum / 2080; // annual to hourly
-  const isWageCompliant = wageData ? offeredHourly >= wageData.medianWage : null;
+  const offeredHourly = offeredWageNum / 2080;
+
+  // Calculate if advertising date is more than 28 days ago
+  const advertisingDate = new Date(formData.advertisingStartDate);
+  const today = new Date();
+  const daysSinceAdvertising = Math.floor((today.getTime() - advertisingDate.getTime()) / (1000 * 60 * 60 * 24));
+  const showAdvertisingWarning = daysSinceAdvertising > 28;
+
+  // Calculate min date (6 months ago) and max date (today)
+  const sixMonthsAgo = new Date();
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+  const minDate = sixMonthsAgo.toISOString().split('T')[0];
+  const maxDate = new Date().toISOString().split('T')[0];
 
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
     setAgentStatus('running');
     setAgentMessage('TinyFish agent searching Canada Business Registry for ' + formData.companyName + '...');
+    setTimeout(() => agentPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
 
     try {
       const res = await fetch('/api/agents/verify-employer', {
@@ -107,7 +136,14 @@ export default function EmployerOnboarding() {
         body: JSON.stringify({ 
           companyName: formData.companyName, 
           province: formData.province,
-          craBN: formData.cra_bn
+          craBN: formData.cra_bn,
+          industry: formData.industry,
+          jobTitle: formData.jobTitle,
+          nocCode: formData.nocCode,
+          offeredWage: parseFloat(formData.wage) || 0,
+          employeeCount: parseInt(formData.employeeCount) || 0,
+          advertisingStartDate: formData.advertisingStartDate,
+          wageCheckResult: wageCheckResult
         })
       });
 
@@ -133,8 +169,8 @@ export default function EmployerOnboarding() {
                   if (data.type === 'STEP' || data.step) {
                     setAgentMessage(`Verifying: ${data.step || data.message || 'Checking records...'}`);
                   }
-                  if (data.type === 'COMPLETE' || data.resultJson) {
-                    const result = data.resultJson;
+                  if (data.type === 'COMPLETE' && (data.result || data.resultJson)) {
+                    const result = data.result || data.resultJson;
                     if (result?.found) {
                       setAgentStatus('complete');
                       setAgentMessage('Employer verified on Canada Business Registry. Accessing dashboard...');
@@ -250,7 +286,7 @@ export default function EmployerOnboarding() {
                     required
                     type="text" 
                     className="w-full bg-bg border border-border rounded-lg px-4 py-3 focus:border-accent-green outline-none transition-colors"
-                    placeholder="21231"
+                    placeholder="21232"
                     value={formData.nocCode}
                     onChange={(e) => setFormData({...formData, nocCode: e.target.value})}
                   />
@@ -281,80 +317,234 @@ export default function EmployerOnboarding() {
                 </div>
               </div>
 
-              {/* Live ESDC Wage Indicator */}
-              {(wageFetching || wageData) && formData.nocCode.length >= 4 && (
-                <div className={`mt-4 p-4 rounded-xl border transition-all duration-500 ${
-                  wageFetching ? 'bg-surface/50 border-border animate-pulse' :
-                  isWageCompliant ? 'bg-accent-green/5 border-accent-green/30' : 'bg-red-500/5 border-red-500/30'
-                }`}>
-                  {wageFetching ? (
-                    <div className="flex items-center gap-3">
-                      <span className="animate-spin text-accent-blue">◌</span>
-                      <span className="text-sm text-muted font-mono">Fetching ESDC median wage for NOC {formData.nocCode}...</span>
-                    </div>
-                  ) : wageData && wageData.medianWage > 0 ? (
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className={`w-2 h-2 rounded-full ${isWageCompliant ? 'bg-accent-green shadow-[0_0_8px_rgba(0,255,148,0.8)]' : 'bg-red-400'}`} />
-                          <span className="text-xs font-mono text-muted uppercase tracking-wider">ESDC Wage Compliance</span>
-                        </div>
-                        {wageData.cached && (
-                          <span className="text-[10px] font-mono text-muted/50">CACHED</span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-4">
-                        <div>
-                          <span className="text-lg font-black font-mono text-primary">
-                            ${wageData.medianWage.toFixed(2)}/hr
-                          </span>
-                          <span className="text-xs text-muted ml-2">
-                            (${(wageData.medianWage * 2080).toLocaleString()}/yr)
-                          </span>
-                        </div>
-                        <span className="text-muted">→</span>
-                        <div className={`font-bold text-sm ${isWageCompliant ? 'text-accent-green' : 'text-red-400'}`}>
-                          {isWageCompliant ? '✓ Your offer is at or above ESDC median' : '✗ Below ESDC median wage'}
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <span className="text-sm text-muted font-mono">No wage data available for NOC {formData.nocCode}</span>
-                  )}
-                </div>
-              )}
+              {/* Advertising Start Date */}
+              <div className="space-y-2">
+                <label className="text-xs font-mono text-muted uppercase tracking-wider">When did you start advertising this role?</label>
+                <input 
+                  required
+                  type="date" 
+                  min={minDate}
+                  max={maxDate}
+                  className="w-full bg-bg border border-border rounded-lg px-4 py-3 focus:border-accent-green outline-none transition-colors"
+                  value={formData.advertisingStartDate}
+                  onChange={(e) => setFormData({...formData, advertisingStartDate: e.target.value})}
+                />
+                <p className="text-xs text-muted italic leading-relaxed">
+                  If you have already been advertising, enter the date you first posted the role. If starting today, leave as today's date.
+                </p>
+                {showAdvertisingWarning && (
+                  <div className="mt-2 p-3 rounded-lg bg-accent-amber/10 border border-accent-amber/30">
+                    <p className="text-xs text-accent-amber font-bold">
+                      ⚠️ Your 4-week advertising period may already be complete. LMIABridge will mark completed weeks accordingly.
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
 
-            <label className="flex items-start gap-4 p-4 bg-accent-amber/5 border border-accent-amber/20 rounded-xl cursor-pointer hover:bg-accent-amber/10 transition-colors">
-              <input 
-                type="checkbox" 
-                className="mt-1 accent-accent-amber"
-                checked={formData.advertised}
-                onChange={(e) => setFormData({...formData, advertised: e.target.checked})}
-              />
-              <span className="text-xs text-accent-amber/80 leading-relaxed font-bold">
-                I certify that I have advertised this role for at least 4 consecutive weeks and have received no suitable Canadian applicants.
-              </span>
-            </label>
+            {/* STEP 2 — WAGE COMPLIANCE VERIFICATION */}
+            {canRunWageCheck && (
+              <div className="mt-8 p-6 rounded-xl border-2 border-accent-blue/30 bg-surface/50">
+                <h3 className="text-sm font-mono text-accent-blue uppercase tracking-wider mb-4">
+                  STEP 2 — WAGE COMPLIANCE VERIFICATION
+                </h3>
+                
+                {wageCheckStatus === 'unchecked' && (
+                  <div className="space-y-4">
+                    <p className="text-sm text-muted leading-relaxed">
+                      Before verifying your company, confirm that your offered wage meets ESDC requirements for this role.
+                    </p>
+                    <label className="flex items-start gap-3 cursor-pointer group">
+                      <input 
+                        type="checkbox"
+                        checked={runWageCheck}
+                        onChange={(e) => setRunWageCheck(e.target.checked)}
+                        className="mt-1 w-5 h-5 rounded border-border bg-bg accent-accent-green"
+                      />
+                      <div className="flex-1">
+                        <p className="text-sm text-primary font-medium group-hover:text-accent-green transition-colors">
+                          Run live ESDC wage compliance check for NOC {formData.nocCode} in {formData.province}
+                        </p>
+                        <p className="text-xs text-muted mt-1 italic">
+                          This uses a TinyFish web agent to fetch the current ESDC median wage from Job Bank Canada in real time. Takes 20–40 seconds.
+                        </p>
+                      </div>
+                    </label>
+                  </div>
+                )}
 
-            <button 
-              type="submit"
-              disabled={agentStatus === 'running'}
-              className="w-full bg-accent-green hover:bg-green-500 text-bg font-black px-8 py-4 rounded-xl transition-all shadow-[0_0_20px_rgba(0,255,148,0.2)] uppercase tracking-widest disabled:opacity-50"
-            >
-              VERIFY & CONTINUE
-            </button>
+                {wageCheckStatus === 'loading' && (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-3 h-3 rounded-full bg-accent-green animate-pulse" />
+                      <p className="text-sm text-accent-green font-medium">
+                        TinyFish agent navigating Job Bank Canada...
+                      </p>
+                    </div>
+                    <p className="text-sm text-muted pl-6">
+                      Fetching median wage for NOC {formData.nocCode} in {formData.province}...
+                    </p>
+                    <p className="text-xs text-accent-amber pl-6 font-bold">
+                      Please wait — do not click Verify & Continue yet
+                      <span className="animate-pulse">...</span>
+                    </p>
+                  </div>
+                )}
+
+                {(wageCheckStatus === 'compliant' || wageCheckStatus === 'non-compliant') && wageCheckResult && (
+                  <div className={`border-2 rounded-lg p-5 ${
+                    wageCheckStatus === 'compliant' 
+                      ? 'border-accent-green/40 bg-accent-green/5' 
+                      : 'border-red-500/40 bg-red-500/5'
+                  }`}>
+                    {/* Header */}
+                    <div className="flex items-center justify-between mb-4 pb-4 border-b border-border">
+                      <div>
+                        <p className={`text-sm font-bold ${wageCheckStatus === 'compliant' ? 'text-accent-green' : 'text-red-400'}`}>
+                          {wageCheckStatus === 'compliant' ? '✓ ESDC Wage Data Retrieved' : '✗ ESDC Wage Data Retrieved'}
+                        </p>
+                        <p className="text-base font-semibold text-primary mt-1">
+                          {wageCheckResult.occupation || 'Occupation'} — {formData.province}
+                        </p>
+                        <p className="text-xs text-muted mt-1">
+                          Source: Job Bank Canada via TinyFish · Run ID: <span className="font-mono">{wageCheckResult.runId || 'N/A'}</span>
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Wage Range */}
+                    {wageCheckResult.wageLow && wageCheckResult.wageHigh && (
+                      <div className="mb-4">
+                        <p className="text-xs text-muted uppercase tracking-wider mb-2">Wage Range for this Occupation</p>
+                        <div className="flex justify-between text-xs text-muted mb-2">
+                          <span>Low</span>
+                          <span className="font-bold text-primary">Median</span>
+                          <span>High</span>
+                        </div>
+                        <div className="flex justify-between text-sm font-mono font-bold mb-3">
+                          <span className="text-muted">${wageCheckResult.wageLow.toFixed(2)}/hr</span>
+                          <span className="text-primary">${wageCheckResult.medianWage.toFixed(2)}/hr</span>
+                          <span className="text-muted">${wageCheckResult.wageHigh.toFixed(2)}/hr</span>
+                        </div>
+                        
+                        {/* Visual bar */}
+                        <div className="relative h-3 bg-border rounded-full mb-2">
+                          <div className="absolute inset-0 bg-gradient-to-r from-red-400 via-accent-amber to-accent-green rounded-full opacity-50" />
+                          {/* Median marker */}
+                          <div 
+                            className="absolute top-0 h-3 w-1 bg-white rounded-full"
+                            style={{ 
+                              left: `${((wageCheckResult.medianWage - wageCheckResult.wageLow) / (wageCheckResult.wageHigh - wageCheckResult.wageLow)) * 100}%` 
+                            }}
+                          />
+                          {/* Offered wage marker */}
+                          <div 
+                            className="absolute -top-1 w-5 h-5 rounded-full border-3 border-white shadow-lg"
+                            style={{ 
+                              left: `${Math.min(Math.max(((offeredHourly - wageCheckResult.wageLow) / (wageCheckResult.wageHigh - wageCheckResult.wageLow)) * 100, 0), 95)}%`,
+                              backgroundColor: wageCheckStatus === 'compliant' ? '#00ff94' : '#ef4444'
+                            }}
+                          />
+                        </div>
+                        <p className="text-xs text-center text-muted">
+                          Your offer: <span className="font-bold text-primary">${offeredHourly.toFixed(2)}/hr</span> (${offeredWageNum.toLocaleString()}/yr)
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Compliance Status */}
+                    <div className={`p-4 rounded-lg border-2 ${
+                      wageCheckStatus === 'compliant'
+                        ? 'border-accent-green/30 bg-accent-green/10'
+                        : 'border-red-500/30 bg-red-500/10'
+                    }`}>
+                      {wageCheckStatus === 'compliant' ? (
+                        <div>
+                          <p className="text-sm font-bold text-accent-green mb-2">
+                            ✓ WAGE COMPLIANT
+                          </p>
+                          <p className="text-sm text-primary leading-relaxed">
+                            Your offer of ${offeredHourly.toFixed(2)}/hr meets the ESDC median of ${wageCheckResult.medianWage.toFixed(2)}/hr for {wageCheckResult.occupation} in {formData.province}. LMIA high-wage stream requirement satisfied.
+                          </p>
+                        </div>
+                      ) : (
+                        <div>
+                          <p className="text-sm font-bold text-red-400 mb-2">
+                            ✗ WAGE NON-COMPLIANT
+                          </p>
+                          <p className="text-sm text-primary leading-relaxed">
+                            Your offer of ${offeredHourly.toFixed(2)}/hr is below the ESDC median of ${wageCheckResult.medianWage.toFixed(2)}/hr. You must increase the offered wage before submitting an LMIA application. ESDC will reject this application at current wage level.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Employment Outlook */}
+                    {wageCheckResult.outlook && (
+                      <div className="mt-4 p-3 rounded-lg bg-surface border border-border">
+                        <p className="text-xs text-muted uppercase tracking-wider mb-1">Employment Outlook</p>
+                        <p className="text-sm text-primary font-medium">{wageCheckResult.outlook}</p>
+                        {wageCheckResult.outlook === 'Limited' && (
+                          <p className="text-xs text-muted mt-2 italic">
+                            Note: Limited outlook means more Canadian workers are available — stronger advertising evidence will be required.
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Agent Status Panel — between wage check and verify button */}
+            {agentStatus !== 'idle' && (
+              <div ref={agentPanelRef} className="mt-6">
+                <AgentStatusPanel 
+                  agentName="EMPLOYER_VERIFY"
+                  url="canada.ca/business-registry"
+                  status={agentStatus}
+                  message={agentMessage}
+                />
+              </div>
+            )}
+
+            {/* STEP 3 — COMPANY VERIFICATION */}
+            <div className="mt-6">
+              <h3 className="text-sm font-mono text-muted uppercase tracking-wider mb-4">
+                STEP 3 — COMPANY VERIFICATION
+              </h3>
+              <button 
+                type="submit"
+                disabled={
+                  agentStatus === 'running' || 
+                  wageCheckStatus === 'loading' || 
+                  wageCheckStatus === 'non-compliant' ||
+                  (canRunWageCheck && wageCheckStatus === 'unchecked')
+                }
+                className={`w-full font-black px-8 py-4 rounded-xl transition-all uppercase tracking-widest disabled:opacity-50 ${
+                  wageCheckStatus === 'non-compliant'
+                    ? 'bg-red-500/20 text-red-400 border-2 border-red-500/40 cursor-not-allowed'
+                    : wageCheckStatus === 'compliant'
+                    ? 'bg-accent-green hover:bg-green-500 text-bg shadow-[0_0_20px_rgba(0,255,148,0.2)]'
+                    : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                }`}
+              >
+                {wageCheckStatus === 'loading' 
+                  ? 'WAITING FOR WAGE VERIFICATION...'
+                  : wageCheckStatus === 'non-compliant'
+                  ? 'CANNOT PROCEED — WAGE BELOW ESDC MEDIAN'
+                  : wageCheckStatus === 'compliant'
+                  ? 'WAGE VERIFIED ✓ — VERIFY COMPANY'
+                  : canRunWageCheck
+                  ? 'RUN WAGE CHECK BEFORE CONTINUING'
+                  : 'VERIFY & CONTINUE'
+                }
+              </button>
+            </div>
           </form>
         </div>
 
         <div className="space-y-6">
-          <AgentStatusPanel 
-            agentName="EMPLOYER_VERIFY"
-            url="canada.ca/business-registry"
-            status={agentStatus}
-            message={agentMessage}
-          />
-          
           <div className="bg-card border border-border rounded-xl p-6">
             <h4 className="text-xs font-mono text-muted uppercase mb-4 tracking-tighter">Trust & Security</h4>
             <ul className="space-y-3 text-xs text-muted">

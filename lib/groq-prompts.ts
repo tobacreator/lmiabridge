@@ -46,7 +46,10 @@ Output must be ONLY valid JSON in this format:
 `;
 }
 
-export function compliancePackPrompt(employer: IEmployer, job: IJobPosting, worker: IWorker): string {
+export function compliancePackPrompt(employer: IEmployer, job: IJobPosting, worker: IWorker, advertisingStartDate: Date): string {
+  const startDate = new Date(advertisingStartDate);
+  const today = new Date();
+  
   return `
 You are a Canadian immigration lawyer specializing in LMIA applications.
 Generate a complete LMIA compliance package for this hiring scenario.
@@ -54,14 +57,29 @@ Generate a complete LMIA compliance package for this hiring scenario.
 Employer: ${employer.companyName}
 Job: ${job.jobTitle} (NOC ${job.nocCode})
 Worker: ${worker.name}
+ADVERTISING_START_DATE: ${startDate.toISOString().split('T')[0]}
+TODAY_DATE: ${today.toISOString().split('T')[0]}
+
+IMPORTANT: Generate the 4-week advertising schedule using ADVERTISING_START_DATE as the Week 1 start date.
+Calculate actual calendar dates for each week deadline:
+- Week 1 deadline = ADVERTISING_START_DATE + 7 days
+- Week 2 deadline = ADVERTISING_START_DATE + 14 days
+- Week 3 deadline = ADVERTISING_START_DATE + 21 days
+- Week 4 deadline = ADVERTISING_START_DATE + 28 days
+
+Compare each deadline to TODAY_DATE:
+- If the deadline has already passed (deadline < TODAY_DATE), set status to 'complete'
+- If the deadline is today or in the future (deadline >= TODAY_DATE), set status to 'pending'
+
+Include the actual date string in each schedule entry as 'deadlineDate' in YYYY-MM-DD format.
 
 Output Case-specific details as JSON:
 {
   "advertisingSchedule": [
-    { "week": 1, "platform": "Job Bank", "actionRequired": "string", "deadline": "string" },
-    { "week": 2, "platform": "Job Bank & LinkedIn Jobs Canada", "actionRequired": "string", "deadline": "string" },
-    { "week": 3, "platform": "Job Bank & Indeed Canada", "actionRequired": "string", "deadline": "string" },
-    { "week": 4, "platform": "Job Bank", "actionRequired": "string", "deadline": "string" }
+    { "week": 1, "platform": "Job Bank", "actionRequired": "string", "deadline": "string", "deadlineDate": "YYYY-MM-DD", "status": "complete" | "pending" },
+    { "week": 2, "platform": "Job Bank & LinkedIn Jobs Canada", "actionRequired": "string", "deadline": "string", "deadlineDate": "YYYY-MM-DD", "status": "complete" | "pending" },
+    { "week": 3, "platform": "Job Bank & Indeed Canada", "actionRequired": "string", "deadline": "string", "deadlineDate": "YYYY-MM-DD", "status": "complete" | "pending" },
+    { "week": 4, "platform": "Job Bank", "actionRequired": "string", "deadline": "string", "deadlineDate": "YYYY-MM-DD", "status": "complete" | "pending" }
   ],
   "wageJustification": "string",
   "transitionPlan": {

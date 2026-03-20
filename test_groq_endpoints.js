@@ -54,7 +54,7 @@ async function runAll() {
     }
 
     console.log('\n--- GTS Screener ---');
-    const res3 = await testAgent('/api/gts/screen', { nocCode: '21231', jobTitle: 'Software Engineer', wage: 95000 });
+    const res3 = await testAgent('/api/gts/screen', { nocCode: '21232', jobTitle: 'Software Engineer', wage: 95000 });
     console.log(JSON.stringify(res3.result, null, 2));
 
     process.exit(0);

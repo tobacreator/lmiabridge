@@ -21,8 +21,18 @@ export async function GET() {
         name: app.worker.name || 'Unknown',
         nocCode: app.worker.nocCode || app.worker.targetNOC || '',
         matchScore: app.matchDetails?.totalScore || app.matchScore || 0,
-        location: `${app.worker.desiredProvince || 'ON'}, Canada`,
+        location: `${app.worker.desiredProvince || 'ON'}`,
+        country: app.worker.country || 'Unknown',
+        educationLevel: app.worker.educationLevel || '',
+        languageScore: app.worker.languageScore || '',
+        salaryExpectation: app.worker.salaryExpectation || 0,
         status: getStatus(app.matchDetails?.totalScore || app.matchScore || 0),
+        matchDetails: app.matchDetails || null,
+        gtsEligible: app.gtsEligible || false,
+        lmiaPathway: (app as any).lmiaPathway || null,
+        applicationId: (app as any)._id?.toString() || null,
+        complianceStatus: (app as any).complianceStatus || 'pending',
+        summary: app.matchDetails?.summary || '',
       }));
 
     return NextResponse.json(workers);

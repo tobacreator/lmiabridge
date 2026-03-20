@@ -35,7 +35,7 @@ async function testAgent(path, body) {
 
 async function runAll() {
     console.log('Testing agents...');
-    const res1 = await testAgent('/api/agents/job-scan', { nocCode: '21231', province: 'ON' });
+    const res1 = await testAgent('/api/agents/job-scan', { nocCode: '21232', province: 'ON' });
     console.log('\n--- Job Scan ---');
     console.log(JSON.stringify(res1.result, null, 2));
 
@@ -43,7 +43,7 @@ async function runAll() {
     console.log('\n--- Verify Employer ---');
     console.log(JSON.stringify(res2.result, null, 2));
 
-    const res3 = await testAgent('/api/agents/wage-lookup', { nocCode: '21231', province: 'ON' });
+    const res3 = await testAgent('/api/agents/wage-lookup', { nocCode: '21232', province: 'ON' });
     console.log('\n--- Wage Lookup ---');
     console.log(JSON.stringify(res3.result, null, 2));
 

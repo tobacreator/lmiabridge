@@ -1,3 +1,7 @@
+if (!process.env.TINYFISH_API_KEY) {
+  throw new Error('TINYFISH_API_KEY is not set in environment variables');
+}
+
 export const TINYFISH_BASE_URL = 'https://agent.tinyfish.ai/v1/automation/run-sse';
 
 export async function runAgent(url: string, goal: string) {

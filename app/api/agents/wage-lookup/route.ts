@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import agentops from '@/lib/agentops';
 import connectToDatabase from '@/lib/mongodb';
 import WageCache from '@/lib/models/WageCache';
+import nocJobBankIds from '@/data/noc-jobbank-ids.json';
 
 const TINYFISH_API_KEY = process.env.TINYFISH_API_KEY;
 const TINYFISH_URL = 'https://agent.tinyfish.ai/v1/automation/run-sse';
@@ -24,6 +25,16 @@ export async function POST(req: NextRequest) {
   try {
     const { nocCode, province } = await req.json();
 
+    // Look up Job Bank ID for this NOC code
+    const jobBankId = (nocJobBankIds as Record<string, string>)[nocCode];
+    if (!jobBankId) {
+      return NextResponse.json({
+        error: 'NOC code not in lookup table',
+        nocCode,
+        message: 'This NOC code does not have a Job Bank wage page mapped yet'
+      }, { status: 404 });
+    }
+
     // Check MongoDB cache first (24hr TTL)
     await connectToDatabase();
     const cached = await WageCache.findOne({
@@ -43,9 +54,25 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    console.log(`[Wage Lookup] Cache MISS for NOC ${nocCode} / ${province} — calling TinyFish`);
-    const searchUrl = `https://www.jobbank.gc.ca/wagereport/occupation/${nocCode}`;
-    const goal = `Extract the median wage, wage range (low to high), and job outlook for this occupation page. Look for salary/wage tables or wage report sections. Return: { medianWage: number, wageLow: number, wageHigh: number, currency: 'CAD', period: 'hourly'|'annual', province: string, nocCode: string, outlook: string }`;
+    console.log(`[Wage Lookup] Cache MISS for NOC ${nocCode} / ${province} — calling TinyFish with Job Bank ID ${jobBankId}`);
+    const searchUrl = `https://www.jobbank.gc.ca/marketreport/wages-occupation/${jobBankId}/${province}`;
+    const goal = `This is a Job Bank wage report page for a specific occupation in Canada.
+Find and extract:
+- The occupation title (shown in the page heading)
+- The median hourly wage (look for a wage table or wage statistics section)
+- The low hourly wage
+- The high hourly wage
+- The employment outlook if shown (Good, Fair, or Limited)
+Return ONLY this JSON:
+{
+  "medianWage": number,
+  "wageLow": number,
+  "wageHigh": number,
+  "currency": "CAD",
+  "period": "hourly",
+  "occupation": string,
+  "outlook": string
+}`;
 
     const response = await fetch(TINYFISH_URL, {
       method: 'POST',
@@ -93,7 +120,8 @@ export async function POST(req: NextRequest) {
               try {
                 const data = JSON.parse(trimmed.slice(6));
                 if (data.run_id) runId = data.run_id;
-                if (data.type === 'COMPLETE' || data.resultJson) resultJson = data.resultJson;
+                if (data.type === 'COMPLETE' && data.result) resultJson = data.result;
+                else if (data.resultJson) resultJson = data.resultJson;
               } catch (e) {}
             }
           }
@@ -124,7 +152,7 @@ export async function POST(req: NextRequest) {
     })();
 
     return new Response(readable, {
-      headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive' }
+      headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive', 'X-Accel-Buffering': 'no' }
     });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });

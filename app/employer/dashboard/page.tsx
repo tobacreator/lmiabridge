@@ -1,8 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import LMIAComplianceTab from './LMIAComplianceTab';
 
 interface Worker {
   _id: string;
@@ -10,8 +9,35 @@ interface Worker {
   nocCode: string;
   matchScore: number;
   location: string;
+  country: string;
+  educationLevel: string;
+  languageScore: string;
+  salaryExpectation: number;
   status: string;
+  matchDetails: {
+    nocAlignment: number;
+    wageCompliance: number;
+    regionMatch: number;
+    languageScore: number;
+    educationMatch: number;
+    totalScore: number;
+    summary: string;
+    lmiaViable: boolean;
+  } | null;
+  gtsEligible: boolean;
+  lmiaPathway: string | null;
+  applicationId: string | null;
+  complianceStatus: string;
+  summary: string;
 }
+
+const countryFlags: Record<string, string> = {
+  'Nigeria': '🇳🇬',
+  'India': '🇮🇳',
+  'Ghana': '🇬🇭',
+  'Mexico': '🇲🇽',
+  'Canada': '🇨🇦',
+};
 
 interface AgentRun {
   runId: string;
@@ -26,6 +52,32 @@ export default function EmployerDashboard() {
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [agentRuns, setAgentRuns] = useState<AgentRun[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedWorker, setSelectedWorker] = useState<Worker | null>(null);
+  const [lmiaPathway, setLmiaPathway] = useState<'gts' | 'standard' | null>(null);
+  const [pathwayLoading, setPathwayLoading] = useState(false);
+
+  const handleSelectPathway = async (pathway: 'gts' | 'standard') => {
+    if (!selectedWorker?.applicationId) return;
+    setPathwayLoading(true);
+    try {
+      const res = await fetch(`/api/lmia/${selectedWorker.applicationId}/pathway`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pathway })
+      });
+      if (res.ok) {
+        setLmiaPathway(pathway);
+        setWorkers(prev => prev.map(w => 
+          w._id === selectedWorker._id ? { ...w, lmiaPathway: pathway } : w
+        ));
+        setSelectedWorker(prev => prev ? { ...prev, lmiaPathway: pathway } : null);
+      }
+    } catch (e) {
+      console.error('Failed to set pathway:', e);
+    } finally {
+      setPathwayLoading(false);
+    }
+  };
 
   // Live dashboard stats from MongoDB
   const [stats, setStats] = useState({
@@ -89,194 +141,7 @@ export default function EmployerDashboard() {
     { id: 'activity', label: 'Agent Activity', icon: '🤖' }
   ];
 
-  const ComplianceCalendar = () => {
-    const [isGenerating, setIsGenerating] = useState(false);
-    
-    const weeks = [
-      { week: 1, platform: 'Job Bank Canada', action: 'Post job listing, capture confirmation URL', status: 'complete', deadline: 'Day 7' },
-      { week: 2, platform: 'LinkedIn Jobs Canada', action: 'Post identical job listing, screenshot the post', status: 'pending', deadline: 'Day 14' },
-      { week: 3, platform: 'Indeed Canada', action: 'Post identical job listing, log all applicant responses', status: 'pending', deadline: 'Day 21' },
-      { week: 4, platform: 'All Platforms', action: 'Close postings, compile response logs, document no suitable Canadian found', status: 'pending', deadline: 'Day 28' }
-    ];
-
-    const handleGeneratePDF = () => {
-      try {
-        const doc = new jsPDF({
-          orientation: 'p',
-          unit: 'mm',
-          format: 'a4'
-        });
-        
-        // 1. Header
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(22);
-        doc.setTextColor(30, 41, 59); // Slate 800
-        doc.text('LMIABridge', 14, 20);
-        
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(14);
-        doc.setTextColor(71, 85, 105); // Slate 600
-        doc.text('LMIA Compliance Evidence Pack', 14, 28);
-        
-        // Horizontal Line
-        doc.setDrawColor(226, 232, 240); // Slate 200
-        doc.setLineWidth(0.5);
-        doc.line(14, 34, 196, 34);
-
-        // 2. Employer details
-        doc.setFontSize(10);
-        doc.setTextColor(100, 116, 139); // Slate 500
-        doc.text('EMPLOYER DIRECTORY', 14, 45);
-        
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(12);
-        doc.setTextColor(15, 23, 42); // Slate 900
-        doc.text(stats.companyName || 'Employer', 14, 52);
-        
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(10);
-        doc.setTextColor(34, 197, 94); // Green 500
-        doc.text('Status: VERIFIED (Business Registry & ESDC Clear)', 14, 58);
-        
-        doc.setTextColor(100, 116, 139);
-        doc.text(`TinyFish Run ID: run_68fb`, 14, 64);
-        doc.text(`Verification Timestamp: 2026-03-11 14:22 UTC`, 14, 70);
-
-        // 3. Wage Analysis
-        doc.text('WAGE ANALYSIS', 120, 45);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(12);
-        doc.setTextColor(15, 23, 42);
-        doc.text(`NOC ${stats.nocCode || '21231'} - ${stats.jobTitle || 'Role'}`, 120, 52);
-        
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(10);
-        doc.setTextColor(34, 197, 94);
-        doc.text('Offered: $60.00/hr', 120, 58);
-        doc.setTextColor(100, 116, 139);
-        doc.text('ESDC Median: $48.00/hr', 120, 64);
-
-        // 4. Advertising Table
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(14);
-        doc.setTextColor(15, 23, 42);
-        doc.text('Advertising Schedule', 14, 85);
-
-        autoTable(doc, {
-          startY: 90,
-          head: [['Week', 'Platform', 'Action taken', 'Status', 'Deadline']],
-          body: weeks.map(w => [
-            `Week ${w.week}`,
-            w.platform,
-            w.action,
-            w.status.toUpperCase(),
-            w.deadline
-          ]),
-          styles: { fontSize: 9, font: 'helvetica' },
-          headStyles: { fillColor: [15, 23, 42] },
-          alternateRowStyles: { fillColor: [248, 250, 252] },
-        });
-
-        // 5. Transition Plan
-        const finalY = (doc as any).lastAutoTable?.finalY || 140;
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(14);
-        doc.setTextColor(15, 23, 42);
-        doc.text('Transition Plan Excerpt', 14, finalY + 15);
-        
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(10);
-        doc.setTextColor(71, 85, 105);
-        const transitionText = "Commitment to hiring 2 local junior developers for every 1 LMIA-approved senior role within the first 24 months of approval. Implement internal mentorship program pairing foreign worker with Canadian junior developers.";
-        const splitText = doc.splitTextToSize(transitionText, 180);
-        doc.text(splitText, 14, finalY + 22);
-
-        // 6. Footer
-        doc.setFont('helvetica', 'italic');
-        doc.setFontSize(8);
-        doc.setTextColor(148, 163, 184); // Slate 400
-        doc.text('Generated by LMIABridge — Powered by TinyFish Web Agents in ' + ((Date.now() % 1000) + 500) + 'ms', 14, 285);
-
-        // Strict synchronous download prevents the browser from dropping the User Activation token
-        // which was causing the filename to strip out and fall back to the raw Blob UUID.
-        doc.save(`LMIABridge_Evidence_Pack_${(stats.companyName || 'Employer').replace(/\s+/g, '_')}.pdf`);
-        
-      } catch (error) {
-        console.error('Error generating PDF:', error);
-        alert('Failed to generate PDF. Check console for details.');
-        setIsGenerating(false);
-      }
-    };
-
-    return (
-      <div className="space-y-6">
-        <div className="bg-card border border-border rounded-2xl overflow-hidden mb-8 shadow-xl">
-          <table className="w-full text-left font-mono text-sm">
-            <thead className="bg-surface border-b border-border text-muted">
-              <tr>
-                <th className="p-4 font-bold uppercase tracking-wider">Week</th>
-                <th className="p-4 font-bold uppercase tracking-wider">Platform</th>
-                <th className="p-4 font-bold uppercase tracking-wider">Action Required</th>
-                <th className="p-4 font-bold uppercase tracking-wider">Deadline</th>
-                <th className="p-4 font-bold uppercase tracking-wider">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {weeks.map((w, i) => (
-                <tr key={i} className="border-b border-border/50 last:border-0 hover:bg-surface/50 transition-colors">
-                  <td className="p-4 text-primary font-bold">Week {w.week}</td>
-                  <td className="p-4 font-bold text-accent-blue">{w.platform}</td>
-                  <td className="p-4 text-primary max-w-xs">{w.action}</td>
-                  <td className="p-4 text-muted">{w.deadline}</td>
-                  <td className="p-4">
-                    {w.status === 'complete' ? (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-accent-green/10 text-accent-green text-xs font-bold w-fit">
-                        ✅ DONE
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-accent-amber/10 text-accent-amber text-xs font-bold w-fit">
-                        ⏳ PENDING
-                      </span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <div className="bg-surface/50 p-4 border-t border-border flex items-center gap-3">
-             <span className="text-accent-amber text-lg">⚠️</span>
-             <p className="text-muted text-xs italic font-mono uppercase tracking-wide">
-               LMIA regulations require advertising on at least 3 platforms over 4 weeks.
-             </p>
-          </div>
-        </div>
-        <div className="bg-card border border-border p-8 rounded-2xl flex items-center justify-between relative overflow-hidden">
-          <div className="absolute top-0 left-0 w-1 h-full bg-accent-blue" />
-          <div>
-            <h3 className="text-xl font-bold text-primary mb-2">Evidence Requirements PDF</h3>
-            <p className="text-muted text-sm italic max-w-sm">
-              Generate submission-ready documentation package.
-            </p>
-          </div>
-          <button 
-            disabled={isGenerating}
-            onClick={handleGeneratePDF}
-            className="bg-accent-blue hover:bg-blue-600 text-bg font-bold px-6 py-3 rounded-lg flex items-center gap-2 disabled:opacity-50 transition-colors"
-          >
-            {isGenerating ? (
-              <>
-                <span className="animate-spin text-lg">◌</span> GENERATING...
-              </>
-            ) : (
-              <>
-                <span>↓</span> EXPORT EVIDENCE PACK
-              </>
-            )}
-          </button>
-        </div>
-      </div>
-    );
-  };
+  // ComplianceCalendar removed — replaced by LMIAComplianceTab component
 
 
   return (
@@ -367,7 +232,7 @@ export default function EmployerDashboard() {
                   <div className="flex justify-between items-start mb-6">
                     <div>
                       <h3 className="text-xl font-bold group-hover:text-accent-blue transition-colors">{w.name}</h3>
-                      <div className="text-xs text-muted font-mono">{w.location}</div>
+                      <div className="text-xs text-muted font-mono">{w.location} · {w.country} {countryFlags[w.country] || '🌍'}</div>
                     </div>
                     <div className={`text-2xl font-black font-mono ${
                       w.matchScore > 70 ? 'text-accent-green' : 'text-accent-amber'
@@ -385,7 +250,10 @@ export default function EmployerDashboard() {
                       {w.status.toUpperCase()}
                     </span>
                   </div>
-                  <button className="w-full bg-surface hover:bg-border border border-border py-3 rounded-lg text-xs font-bold transition-all uppercase tracking-widest text-primary">
+                  <button 
+                    onClick={() => setSelectedWorker(w)}
+                    className="w-full bg-surface hover:bg-border border border-border py-3 rounded-lg text-xs font-bold transition-all uppercase tracking-widest text-primary"
+                  >
                     View Comprehensive Analysis
                   </button>
                 </div>
@@ -393,7 +261,9 @@ export default function EmployerDashboard() {
             </div>
           )}
 
-          {activeTab === 'compliance' && <ComplianceCalendar />}
+          {activeTab === 'compliance' && (
+            <LMIAComplianceTab onGoToWorkers={() => setActiveTab('workers')} />
+          )}
 
           {activeTab === 'transition' && (
             <div className="bg-card border border-border rounded-2xl p-10 font-mono text-sm leading-relaxed max-w-4xl mx-auto shadow-2xl relative overflow-hidden">
@@ -403,56 +273,280 @@ export default function EmployerDashboard() {
               <div className="space-y-8 text-primary/80">
                 <section>
                   <h4 className="text-accent-green font-bold mb-2 underline tracking-widest">YEAR 1: FOUNDATION</h4>
-                  <p>Implement internal mentorship program at {stats.companyName || 'the company'} pairing the foreign {stats.jobTitle || 'worker'} with Canadian junior developers. Launch targeted hackathons in underrepresented regions to identify local talent for {stats.jobTitle || 'the role'} (NOC {stats.nocCode || '—'}).</p>
+                  <p>Onboard {workers[0]?.name || 'the foreign worker'} as {stats.jobTitle || 'Software Developer'} at {stats.companyName || 'the company'}. Establish knowledge transfer protocols between {workers[0]?.name || 'the hire'} and existing Canadian development team. Post 1 junior {stats.jobTitle || 'developer'} role exclusively on Canadian job boards (Job Bank, LinkedIn Canada, Indeed Canada). Target universities in Ontario with co-op programs for {stats.jobTitle || 'the role'} (NOC {stats.nocCode || '21232'}).</p>
                 </section>
                 <section>
                   <h4 className="text-accent-green font-bold mb-2 underline tracking-widest">YEAR 2: SCALE</h4>
-                  <p>Increase {stats.companyName || 'company'} recruitment budget by 15% specifically for university campus tours across Canada. Standardize training protocols for {stats.jobTitle || 'the role'} to facilitate rapid knowledge transfer from international hires to Canadian staff.</p>
+                  <p>Hire minimum 1 Canadian junior {stats.jobTitle || 'developer'} to work alongside {workers[0]?.name || 'the foreign worker'}. {workers[0]?.name || 'The hire'} leads technical mentorship program for new Canadian staff. Expand {stats.companyName || 'company'} Canadian recruitment to university co-op programs at University of Toronto, University of Waterloo, and McMaster University. Standardize training protocols for {stats.jobTitle || 'the role'} to facilitate rapid knowledge transfer.</p>
                 </section>
                 <section>
                   <h4 className="text-accent-green font-bold mb-2 underline tracking-widest">YEAR 3: SUSTAINABILITY</h4>
-                  <p>Achieve 2:1 Canadian-to-foreign-worker ratio for {stats.jobTitle || 'the role'} positions. Establish {stats.companyName || 'the company'} as a top employer for new CS graduates, reducing LMIA dependency by 40%.</p>
+                  <p>Target 70% Canadian workforce in {stats.companyName || 'the company'} development team. {workers[0]?.name || 'The foreign worker'} eligible for Canadian Experience Class permanent residence application after 12 months of Canadian work experience. Evaluate permanent retention strategy. Establish {stats.companyName || 'the company'} as a top employer for new CS graduates, reducing LMIA dependency by 40%.</p>
                 </section>
                 <section>
-                  <h4 className="text-accent-green font-bold mb-2 underline tracking-widest">CANADIAN HIRING GOALS</h4>
-                  <p>Commitment to hiring 2 local junior developers for every 1 LMIA-approved senior role within the first 24 months of approval.</p>
+                  <h4 className="text-accent-green font-bold mb-2 underline tracking-widest">CANADIAN HIRING COMMITMENT</h4>
+                  <p>{stats.companyName || 'The employer'} commits to prioritizing Canadian citizens and permanent residents for all future {stats.jobTitle || 'Software Developer'} positions as Canadian talent becomes available. Target: hire 2 local junior developers for every 1 LMIA-approved senior role within the first 24 months of approval.</p>
                 </section>
               </div>
             </div>
           )}
 
           {activeTab === 'activity' && (
-            <div className="bg-card border border-border rounded-2xl overflow-hidden">
-              <table className="w-full text-left font-mono text-xs">
-                <thead>
-                  <tr className="bg-surface text-muted uppercase tracking-widest">
-                    <th className="px-6 py-4">Run_ID</th>
-                    <th className="px-6 py-4">Timestamp</th>
-                    <th className="px-6 py-4">Agent_Node</th>
-                    <th className="px-6 py-4">Status</th>
-                    <th className="px-6 py-4 text-right">Duration</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border/50">
-                  {agentRuns.map((run) => (
-                    <tr key={run.runId} className="hover:bg-surface/50 transition-colors">
-                      <td className="px-6 py-4 text-accent-blue">{run.runId}</td>
-                      <td className="px-6 py-4 text-muted">{run.timestamp}</td>
-                      <td className="px-6 py-4 font-bold text-primary">{run.agent}</td>
-                      <td className="px-6 py-4">
-                        <span className="flex items-center gap-2">
-                          <span className="w-1.5 h-1.5 rounded-full bg-accent-green" />
-                          {run.status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-right text-muted">{run.duration}</td>
+            <div className="space-y-4">
+              {/* TinyFish branding badge */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="bg-accent-blue/10 border border-accent-blue/30 rounded-lg px-4 py-2 flex items-center gap-2">
+                    <span className="text-lg">🐟</span>
+                    <span className="text-xs font-bold text-accent-blue uppercase tracking-wider">Powered by TinyFish Web Agents</span>
+                  </div>
+                </div>
+                <p className="text-xs text-muted italic font-mono">All agent runs are logged for ESDC audit purposes.</p>
+              </div>
+
+              <div className="bg-card border border-border rounded-2xl overflow-hidden">
+                <table className="w-full text-left font-mono text-xs">
+                  <thead>
+                    <tr className="bg-surface text-muted uppercase tracking-widest">
+                      <th className="px-6 py-4">Agent</th>
+                      <th className="px-6 py-4">Action</th>
+                      <th className="px-6 py-4">Timestamp</th>
+                      <th className="px-6 py-4">Run ID</th>
+                      <th className="px-6 py-4">Status</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-border/50">
+                    {agentRuns.length > 0 ? agentRuns.map((run) => (
+                      <tr key={run.runId} className="hover:bg-surface/50 transition-colors">
+                        <td className="px-6 py-4 font-bold text-primary">{run.agent}</td>
+                        <td className="px-6 py-4 text-muted">
+                          {run.agent === 'JOB_SCAN' ? `Job Bank NOC ${stats.nocCode || '21232'} ON` :
+                           run.agent === 'VERIFY_EMPLOYER' ? 'Canada Business Registry' :
+                           run.agent === 'WAGE_LOOKUP' ? `ESDC Wage Data NOC ${stats.nocCode || '21232'}` :
+                           run.agent === 'COMPLIANCE_GEN' ? 'ESDC Employer Compliance' :
+                           'Agent task'}
+                        </td>
+                        <td className="px-6 py-4 text-muted">{run.timestamp}</td>
+                        <td className="px-6 py-4 text-accent-blue font-mono">{run.runId}</td>
+                        <td className="px-6 py-4">
+                          <span className="flex items-center gap-2">
+                            <span className={`w-1.5 h-1.5 rounded-full ${
+                              run.status === 'COMPLETE' ? 'bg-accent-green' :
+                              run.status === 'RUNNING' ? 'bg-accent-amber animate-pulse' :
+                              'bg-red-400'
+                            }`} />
+                            <span className={`text-xs font-bold ${
+                              run.status === 'COMPLETE' ? 'text-accent-green' :
+                              run.status === 'RUNNING' ? 'text-accent-amber' :
+                              'text-red-400'
+                            }`}>
+                              {run.status === 'COMPLETE' ? '✓ Complete' : run.status}
+                            </span>
+                          </span>
+                        </td>
+                      </tr>
+                    )) : (
+                      <tr>
+                        <td colSpan={5} className="px-6 py-8 text-center text-muted italic">
+                          No agent runs recorded yet. Runs will appear after wage lookup and employer verification.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </div>
+
+        {/* Comprehensive Analysis Modal */}
+        {selectedWorker && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={() => setSelectedWorker(null)}>
+            <div className="bg-card border border-border rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl" onClick={(e) => e.stopPropagation()}>
+              {/* Header */}
+              <div className="p-6 border-b border-border">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h2 className="text-2xl font-bold text-primary">{selectedWorker.name}</h2>
+                    <p className="text-sm text-muted font-mono mt-1">
+                      {selectedWorker.location} · {selectedWorker.country} {countryFlags[selectedWorker.country] || '🌍'}
+                    </p>
+                    <div className="flex gap-3 mt-3 text-xs text-muted">
+                      <span>Education: <span className="text-primary font-bold">{selectedWorker.educationLevel || 'N/A'}</span></span>
+                      <span>·</span>
+                      <span>CLB: <span className="text-primary font-bold">{selectedWorker.languageScore || 'N/A'}</span></span>
+                      <span>·</span>
+                      <span>Expected: <span className="text-primary font-bold">${selectedWorker.salaryExpectation?.toLocaleString() || 'N/A'}</span></span>
+                    </div>
+                  </div>
+                  <button onClick={() => setSelectedWorker(null)} className="text-muted hover:text-primary text-2xl leading-none">&times;</button>
+                </div>
+              </div>
+
+              {/* Match Score Dimensions */}
+              <div className="p-6 border-b border-border">
+                <h3 className="text-xs font-mono text-muted uppercase tracking-wider mb-4">Match Score Dimensions</h3>
+                {selectedWorker.matchDetails ? (
+                  <div className="space-y-3">
+                    {[
+                      { label: 'NOC Alignment', value: selectedWorker.matchDetails.nocAlignment, color: 'bg-accent-green' },
+                      { label: 'Wage Compliance', value: selectedWorker.matchDetails.wageCompliance, color: 'bg-accent-blue' },
+                      { label: 'Region Match', value: selectedWorker.matchDetails.regionMatch, color: 'bg-accent-green' },
+                      { label: 'Language Score', value: selectedWorker.matchDetails.languageScore, color: 'bg-accent-amber' },
+                      { label: 'Education Match', value: selectedWorker.matchDetails.educationMatch, color: 'bg-accent-blue' },
+                    ].map((dim) => (
+                      <div key={dim.label} className="flex items-center gap-3">
+                        <span className="text-xs text-muted w-32 text-right font-mono">{dim.label}</span>
+                        <div className="flex-1 h-3 bg-surface rounded-full overflow-hidden">
+                          <div 
+                            className={`h-full ${dim.color} rounded-full transition-all duration-1000`} 
+                            style={{ width: `${dim.value}%` }} 
+                          />
+                        </div>
+                        <span className="text-sm font-black font-mono w-12 text-right">{dim.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted italic">Match details not available</p>
+                )}
+
+                {/* Total Score */}
+                <div className="mt-6 flex items-center justify-between bg-surface rounded-xl p-4 border border-border">
+                  <span className="text-sm font-mono text-muted uppercase tracking-wider">Total Match Score</span>
+                  <span className={`text-4xl font-black font-mono ${
+                    selectedWorker.matchScore >= 80 ? 'text-accent-green' : 'text-accent-amber'
+                  }`}>
+                    {selectedWorker.matchScore}<span className="text-lg text-muted">/100</span>
+                  </span>
+                </div>
+              </div>
+
+              {/* GTS Pathway Selection */}
+              {selectedWorker.gtsEligible && (
+                <div className="px-6 py-4 border-b border-border">
+                  <div className="bg-accent-amber/10 border border-accent-amber/30 rounded-xl p-5">
+                    <div className="flex items-center gap-3 mb-4">
+                      <span className="text-3xl">⚡</span>
+                      <div>
+                        <p className="text-sm font-bold text-accent-amber">GTS FAST TRACK ELIGIBLE — Category B</p>
+                        <p className="text-xs text-accent-amber/80 mt-0.5">14-Day Processing</p>
+                      </div>
+                    </div>
+
+                    {(selectedWorker.lmiaPathway || lmiaPathway) ? (
+                      <div className={`p-4 rounded-lg border-2 ${
+                        (selectedWorker.lmiaPathway || lmiaPathway) === 'gts'
+                          ? 'border-accent-green/40 bg-accent-green/10'
+                          : 'border-border bg-surface'
+                      }`}>
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-bold text-primary">
+                              {(selectedWorker.lmiaPathway || lmiaPathway) === 'gts' 
+                                ? '✓ Global Talent Stream selected' 
+                                : '✓ Standard LMIA Stream selected'}
+                            </p>
+                            <p className="text-xs text-muted mt-1">
+                              {(selectedWorker.lmiaPathway || lmiaPathway) === 'gts'
+                                ? 'This application will use GTS Category B 14-day processing. No advertising required.'
+                                : 'This application will use standard LMIA processing with full 4-week advertising.'}
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => {
+                              setLmiaPathway(null);
+                              setSelectedWorker(prev => prev ? { ...prev, lmiaPathway: null } : null);
+                              setWorkers(prev => prev.map(w => 
+                                w._id === selectedWorker._id ? { ...w, lmiaPathway: null } : w
+                              ));
+                            }}
+                            className="text-xs text-muted hover:text-primary underline ml-4 whitespace-nowrap"
+                          >
+                            Change
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <p className="text-xs text-muted mb-4">Two pathway options for this candidate:</p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                          <div className="border-2 border-accent-green/30 bg-accent-green/5 rounded-lg p-4">
+                            <p className="text-sm font-bold text-accent-green mb-2">OPTION A — Global Talent Stream</p>
+                            <p className="text-[10px] text-accent-green/80 uppercase tracking-wider mb-2">Recommended</p>
+                            <ul className="space-y-1 text-xs">
+                              <li className="text-accent-green">✓ 14-day LMIA processing</li>
+                              <li className="text-accent-green">✓ No 4-week advertising requirement</li>
+                              <li className="text-accent-green">✓ Streamlined documentation</li>
+                              <li className="text-red-400">✗ Must commit to GTS program</li>
+                              <li className="text-red-400">✗ Must pay GTS employer fee</li>
+                            </ul>
+                          </div>
+                          <div className="border border-border bg-surface rounded-lg p-4">
+                            <p className="text-sm font-bold text-primary mb-2">OPTION B — Standard LMIA Stream</p>
+                            <p className="text-[10px] text-muted uppercase tracking-wider mb-2">&nbsp;</p>
+                            <ul className="space-y-1 text-xs">
+                              <li className="text-accent-green">✓ Lower fees</li>
+                              <li className="text-red-400">✗ 3-6 month processing time</li>
+                              <li className="text-red-400">✗ Full 4-week advertising required</li>
+                              <li className="text-red-400">✗ 3 platforms minimum</li>
+                            </ul>
+                          </div>
+                        </div>
+                        <div className="flex gap-3">
+                          <button
+                            disabled={pathwayLoading}
+                            onClick={() => handleSelectPathway('gts')}
+                            className="flex-1 bg-accent-green hover:bg-green-500 text-bg font-bold py-3 rounded-lg text-xs uppercase tracking-widest transition-colors disabled:opacity-50"
+                          >
+                            {pathwayLoading ? 'Saving...' : 'Select GTS Pathway'}
+                          </button>
+                          <button
+                            disabled={pathwayLoading}
+                            onClick={() => handleSelectPathway('standard')}
+                            className="flex-1 bg-surface hover:bg-border border border-border text-primary font-bold py-3 rounded-lg text-xs uppercase tracking-widest transition-colors disabled:opacity-50"
+                          >
+                            {pathwayLoading ? 'Saving...' : 'Use Standard LMIA'}
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Summary */}
+              {(selectedWorker.summary || selectedWorker.matchDetails?.summary) && (
+                <div className="px-6 py-4 border-b border-border">
+                  <h3 className="text-xs font-mono text-muted uppercase tracking-wider mb-2">AI Assessment Summary</h3>
+                  <p className="text-sm text-primary/80 leading-relaxed">
+                    {selectedWorker.summary || selectedWorker.matchDetails?.summary}
+                  </p>
+                </div>
+              )}
+
+              {/* Actions */}
+              <div className="p-6 flex gap-3">
+                <button 
+                  onClick={() => {
+                    alert('LMIA package generation will be triggered via POST /api/compliance/generate');
+                  }}
+                  className="flex-1 bg-accent-green hover:bg-green-500 text-bg font-bold py-3 rounded-lg text-sm uppercase tracking-widest transition-colors"
+                >
+                  Generate LMIA Package
+                </button>
+                <button 
+                  onClick={() => {
+                    alert('Interview invitation feature coming soon');
+                  }}
+                  className="flex-1 bg-surface hover:bg-border border border-border text-primary font-bold py-3 rounded-lg text-sm uppercase tracking-widest transition-colors"
+                >
+                  Send Interview Invitation
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

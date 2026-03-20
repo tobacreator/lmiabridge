@@ -6,7 +6,8 @@ const mockJob = { jobTitle: 'Senior Developer', nocCode: '21232' };
 const mockWorker = { name: 'John Doe' };
 
 async function testGroq() {
-  const prompt = compliancePackPrompt(mockEmployer as any, mockJob as any, mockWorker as any);
+  const advertisingStartDate = new Date();
+  const prompt = compliancePackPrompt(mockEmployer as any, mockJob as any, mockWorker as any, advertisingStartDate);
   
   const completion = await groq.chat.completions.create({
     messages: [{ role: 'user', content: prompt }],
