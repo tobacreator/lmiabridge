@@ -30,6 +30,12 @@ interface Worker {
   applicationId: string | null;
   complianceStatus: string;
   summary: string;
+  currentJobTitle?: string;
+  currentEmployer?: string;
+  yearsExperience?: number;
+  technicalSkills?: string[];
+  institutionName?: string;
+  professionalSummary?: string;
 }
 
 const countryFlags: Record<string, string> = {
@@ -381,19 +387,36 @@ function DashboardContent() {
                 <div className="flex justify-between items-start">
                   <div>
                     <h2 className="text-2xl font-bold text-primary">{selectedWorker.name}</h2>
-                    <p className="text-sm text-muted font-mono mt-1">
-                      {selectedWorker.location} · {selectedWorker.country} {countryFlags[selectedWorker.country] || '🌍'}
+                    {(selectedWorker.currentJobTitle || selectedWorker.currentEmployer) && (
+                      <p className="text-sm text-muted mt-1">
+                        {selectedWorker.currentJobTitle}{selectedWorker.currentEmployer ? ` at ${selectedWorker.currentEmployer}` : ''}
+                      </p>
+                    )}
+                    <p className="text-xs text-muted font-mono mt-2">
+                      {countryFlags[selectedWorker.country] || '🌍'} {selectedWorker.country} · {selectedWorker.location}
+                      {selectedWorker.institutionName ? ` · ${selectedWorker.institutionName}` : ''}
+                      {selectedWorker.educationLevel ? ` · ${selectedWorker.educationLevel}` : ''}
                     </p>
-                    <div className="flex gap-3 mt-3 text-xs text-muted">
-                      <span>Education: <span className="text-primary font-bold">{selectedWorker.educationLevel || 'N/A'}</span></span>
-                      <span>·</span>
-                      <span>CLB: <span className="text-primary font-bold">{selectedWorker.languageScore || 'N/A'}</span></span>
-                      <span>·</span>
-                      <span>Expected: <span className="text-primary font-bold">${selectedWorker.salaryExpectation?.toLocaleString() || 'N/A'}</span></span>
-                    </div>
+                    <p className="text-xs text-muted mt-1">
+                      CLB <span className="text-primary font-bold">{selectedWorker.languageScore || 'N/A'}</span>
+                      {selectedWorker.yearsExperience ? <> · <span className="text-primary font-bold">{selectedWorker.yearsExperience} years</span> exp</> : null}
+                      {selectedWorker.salaryExpectation ? <> · <span className="text-primary font-bold">${selectedWorker.salaryExpectation.toLocaleString()}/yr</span> expected</> : null}
+                    </p>
                   </div>
                   <button onClick={() => setSelectedWorker(null)} className="text-muted hover:text-primary text-2xl leading-none">&times;</button>
                 </div>
+                {selectedWorker.technicalSkills && selectedWorker.technicalSkills.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mt-3">
+                    {selectedWorker.technicalSkills.map((skill, i) => (
+                      <span key={i} className="bg-accent-blue/10 border border-accent-blue/30 text-accent-blue text-[10px] font-mono px-2 py-0.5 rounded-md">{skill}</span>
+                    ))}
+                  </div>
+                )}
+                {selectedWorker.professionalSummary && (
+                  <div className="mt-3 bg-surface/50 border border-border/50 rounded-lg px-4 py-3">
+                    <p className="text-xs text-muted italic leading-relaxed">"{selectedWorker.professionalSummary}"</p>
+                  </div>
+                )}
               </div>
 
               {/* Match Score Dimensions */}

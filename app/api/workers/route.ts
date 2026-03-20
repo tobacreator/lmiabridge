@@ -33,6 +33,12 @@ export async function GET() {
         applicationId: (app as any)._id?.toString() || null,
         complianceStatus: (app as any).complianceStatus || 'pending',
         summary: app.matchDetails?.summary || '',
+        currentJobTitle: app.worker.currentJobTitle || '',
+        currentEmployer: app.worker.currentEmployer || '',
+        yearsExperience: app.worker.yearsExperience || 0,
+        technicalSkills: app.worker.technicalSkills || [],
+        institutionName: app.worker.institutionName || '',
+        professionalSummary: app.worker.professionalSummary || '',
       }));
 
     return NextResponse.json(workers);

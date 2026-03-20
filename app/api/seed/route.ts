@@ -62,9 +62,15 @@ export async function GET() {
       targetNOC: '21232',
       country: 'Nigeria',
       languageScore: '11',
-      educationLevel: "Bachelor's",
+      educationLevel: "Bachelor's Degree",
       desiredProvince: 'ON',
       salaryExpectation: 105000,
+      currentJobTitle: 'Senior Software Engineer',
+      currentEmployer: 'Interswitch Group',
+      yearsExperience: 5,
+      technicalSkills: ['Ruby on Rails', 'React', 'PostgreSQL', 'Node.js', 'REST APIs'],
+      institutionName: 'University of Lagos',
+      professionalSummary: 'Senior software engineer with 5 years building fintech payment infrastructure in West Africa. Specializing in Ruby on Rails and React. Targeting Canadian tech sector.',
     });
 
     // Create Priya Sharma worker
@@ -78,6 +84,12 @@ export async function GET() {
       educationLevel: "Master's Degree",
       desiredProvince: 'ON',
       salaryExpectation: 98000,
+      currentJobTitle: 'Software Engineer',
+      currentEmployer: 'Infosys',
+      yearsExperience: 4,
+      technicalSkills: ['Java', 'Spring Boot', 'React', 'MySQL', 'Docker'],
+      institutionName: 'IIT Delhi',
+      professionalSummary: 'Full-stack engineer with 4 years enterprise software experience. Targeting Canadian tech sector with strong Java and React background.',
     });
 
     // Create LMIA Application with pre-scored match

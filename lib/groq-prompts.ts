@@ -14,6 +14,11 @@ Worker Profile:
 - Language Score: ${worker.languageScore || 'N/A'}
 - Education: ${worker.educationLevel || 'N/A'}
 - Desired Province: ${worker.desiredProvince || 'N/A'}
+- Worker Experience: ${(worker as any).yearsExperience || 'N/A'} years
+- Worker Current Role: ${(worker as any).currentJobTitle || 'N/A'} at ${(worker as any).currentEmployer || 'N/A'}
+- Worker Technical Skills: ${(worker as any).technicalSkills?.join(', ') || 'not specified'}
+- Worker Institution: ${(worker as any).institutionName || 'not specified'}
+- Worker Summary: ${(worker as any).professionalSummary || 'not provided'}
 
 Job Posting:
 - Title: ${job.jobTitle}
@@ -31,6 +36,8 @@ Score the match on 5 dimensions (0-100 each):
 3. regionMatch: Worker's desired province vs job province.
 4. languageScore: Worker's language score vs typical job requirements.
 5. educationMatch: Worker's education vs typical NOC requirements.
+
+In the summary field, write 2-3 sentences that specifically reference the worker's actual job title, employer, years of experience, and top skills. Reference the specific job and company they are matched with. Do not use generic language.
 
 Output must be ONLY valid JSON in this format:
 {
