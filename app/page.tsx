@@ -26,6 +26,10 @@ export default function Home() {
           AI-powered tracking, matching, and compliance validation for the Canadian Labour Market. Fast, reliable, and entirely transparent.
         </p>
 
+        <p className="text-sm italic text-gray-400 text-center">
+          Built by an immigrant founder navigating the LMIA process personally.
+        </p>
+
         <div className="flex flex-col sm:flex-row items-center gap-4 pt-8 w-full justify-center">
           <Link 
             href="/employer" 
@@ -52,7 +56,7 @@ export default function Home() {
         <div className="pt-2 w-full flex justify-center animate-in fade-in slide-in-from-bottom-4 duration-700 delay-300">
            <Link href="/verify" className="flex items-center gap-3 px-6 py-3 bg-accent-amber/10 border border-accent-amber/30 hover:bg-accent-amber/20 hover:border-accent-amber/50 text-accent-amber rounded-full font-mono text-sm font-bold transition-all hover:scale-105">
               <span className="w-2 h-2 rounded-full bg-accent-amber animate-pulse shadow-[0_0_10px_rgba(255,184,0,0.8)]" />
-              Free Fraud Check
+              Worried about LMIA fraud? → Verify any employer free
            </Link>
         </div>
 

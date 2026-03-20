@@ -12,7 +12,7 @@ function GTSContent() {
   // Determine GTS category from NOC parameter
   // Typically Category A is for unique/specialized talent referred by a designated partner
   // Category B is for specific in-demand tech roles on the Global Talent Occupations List (like 21232)
-  const category = (noc === '21232' || noc === '21231') ? 'B' : categoryRaw;
+  const category = (noc === '21232') ? 'B' : categoryRaw;
 
   return (
     <div className="min-h-screen bg-bg relative overflow-hidden py-20 px-6">

@@ -161,7 +161,7 @@ function MatchResultsContent() {
                 {/* GTS Badge */}
                 {job.gtsEligible && (
                   <div className="absolute top-4 right-4 z-20">
-                    <Link href={`/gts?noc=${noc || '21231'}&category=B`} className="flex items-center gap-1.5 bg-accent-amber/10 border border-accent-amber/30 px-3 py-1 rounded-full text-[10px] font-bold text-accent-amber uppercase tracking-widest hover:bg-accent-amber/20 hover:scale-105 transition-all cursor-pointer shadow-[0_0_15px_rgba(255,184,0,0.2)]">
+                    <Link href={`/gts?noc=${noc || '21232'}&category=B`} className="flex items-center gap-1.5 bg-accent-amber/10 border border-accent-amber/30 px-3 py-1 rounded-full text-[10px] font-bold text-accent-amber uppercase tracking-widest hover:bg-accent-amber/20 hover:scale-105 transition-all cursor-pointer shadow-[0_0_15px_rgba(255,184,0,0.2)]">
                       <span className="text-sm animate-pulse">★</span> GTS FAST TRACK — 14 Days
                     </Link>
                   </div>
