@@ -66,6 +66,35 @@ function DashboardContent() {
   const [selectedWorker, setSelectedWorker] = useState<Worker | null>(null);
   const [lmiaPathway, setLmiaPathway] = useState<'gts' | 'standard' | null>(null);
   const [pathwayLoading, setPathwayLoading] = useState(false);
+  const [downloadingPDF, setDownloadingPDF] = useState(false);
+
+  const handleDownloadPDF = async () => {
+    if (!selectedWorker || !stats.employerId) return;
+    setDownloadingPDF(true);
+    try {
+      const response = await fetch('/api/evidence-pack', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          employerId: stats.employerId,
+          workerId: selectedWorker._id,
+          applicationId: selectedWorker.applicationId
+        })
+      });
+      if (!response.ok) throw new Error('Failed to generate PDF');
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `LMIA-Evidence-Pack-${stats.companyName || 'Employer'}-${new Date().toISOString().split('T')[0]}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error('[Evidence Pack] Download error:', e);
+    } finally {
+      setDownloadingPDF(false);
+    }
+  };
 
   const handleSelectPathway = async (pathway: 'gts' | 'standard') => {
     if (!selectedWorker?.applicationId) return;
@@ -474,6 +503,19 @@ function DashboardContent() {
                     </span>
                   )}
                 </div>
+
+                {/* Download Evidence Pack */}
+                <button
+                  onClick={handleDownloadPDF}
+                  disabled={downloadingPDF}
+                  className="mt-4 w-full bg-accent-blue hover:bg-blue-600 text-bg font-bold py-3 rounded-lg flex items-center justify-center gap-2 text-sm transition-colors disabled:opacity-50"
+                >
+                  {downloadingPDF ? (
+                    <><span className="animate-spin">◌</span> Generating PDF...</>
+                  ) : (
+                    <><span>↓</span> Download Evidence Pack PDF</>
+                  )}
+                </button>
               </div>
 
               {/* GTS Pathway Selection */}
