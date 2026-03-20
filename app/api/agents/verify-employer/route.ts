@@ -112,16 +112,38 @@ Only return found: false if there are absolutely zero results after trying multi
             resultJson.note = 'Found under registered legal name: ' + resultJson.registeredName;
           }
 
-          const verificationStatus = resultJson.found ? 'verified' : 'failed';
+          // Handle amalgamated/continued statuses as verified
+          const statusLower = (resultJson.status || '').toLowerCase();
+          const isVerified = resultJson.found === true && (
+            statusLower.includes('active') ||
+            statusLower.includes('amalgamated') ||
+            statusLower.includes('continued') ||
+            statusLower === '' // no status returned but found
+          );
+
+          let verificationNote = '';
+          if (statusLower.includes('amalgamated')) {
+            verificationNote = 'Company amalgamated — common for restructured corporations. Verified as legitimate Canadian business entity.';
+          } else if (statusLower.includes('continued')) {
+            verificationNote = 'Company continued under federal jurisdiction. Verified as legitimate Canadian business entity.';
+          }
+
+          const verificationStatus = isVerified ? 'verified' : (resultJson.found ? 'verified' : 'failed');
 
           try {
             await connectToDatabase();
+            const updateFields: any = { 
+              verificationStatus, 
+              cra_bn: craBN || resultJson.corporationNumber 
+            };
+            if (verificationNote) updateFields.verificationNote = verificationNote;
+
             const emp = await Employer.findOneAndUpdate(
               { companyName },
-              { verificationStatus, cra_bn: craBN || resultJson.corporationNumber },
+              updateFields,
               { upsert: true, new: true }
             );
-            console.log(`[Verify Employer] Status: ${verificationStatus} for ${companyName}, ID: ${emp._id}`);
+            console.log(`[Verify Employer] Status: ${verificationStatus} for ${companyName}, ID: ${emp._id}${verificationNote ? `, Note: ${verificationNote}` : ''}`);
             // Emit employerId so frontend can redirect with it
             await safeWrite(`data: ${JSON.stringify({ type: 'EMPLOYER_ID', employerId: emp._id.toString() })}\n\n`);
           } catch (dbErr) {

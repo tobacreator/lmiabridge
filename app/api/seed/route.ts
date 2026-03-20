@@ -42,6 +42,7 @@ export async function GET() {
       offeredWage: 110000,
       employeeCount: 900,
       verificationStatus: 'verified',
+      verificationNote: 'Company amalgamated — common for restructured corporations. Verified as legitimate Canadian business entity.',
     });
 
     // Create Software Developer job posting

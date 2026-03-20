@@ -17,6 +17,7 @@ export async function GET() {
     const employer = await Employer.findOne({}).sort({ createdAt: -1 }).lean() as any;
     
     const verificationStatus = employer?.verificationStatus || 'pending';
+    const verificationNote = employer?.verificationNote || null;
     const tradingName = employer?.tradingName || null;
     const companyName = employer?.companyName || null;
     const employerId = employer?._id?.toString() || null;
@@ -54,6 +55,7 @@ export async function GET() {
       totalMatched,
       gtsEligible,
       verificationStatus,
+      verificationNote,
       companyName,
       tradingName,
       employerId,

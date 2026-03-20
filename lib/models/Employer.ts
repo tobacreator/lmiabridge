@@ -13,6 +13,7 @@ export interface IEmployer extends Document {
   employeeCount?: number;
   advertisingStartDate?: Date;
   verificationStatus: 'pending' | 'verified' | 'failed';
+  verificationNote?: string;
   createdAt: Date;
 }
 
@@ -29,6 +30,7 @@ const EmployerSchema = new Schema<IEmployer>({
   employeeCount: { type: Number },
   advertisingStartDate: { type: Date, default: Date.now },
   verificationStatus: { type: String, enum: ['pending', 'verified', 'failed'], default: 'pending' },
+  verificationNote: { type: String },
   createdAt: { type: Date, default: Date.now }
 });
 

@@ -124,6 +124,7 @@ function DashboardContent() {
     totalMatched: 0,
     gtsEligible: 0,
     verificationStatus: 'pending',
+    verificationNote: null as string | null,
     companyName: null as string | null,
     tradingName: null as string | null,
     jobTitle: null as string | null,
@@ -212,6 +213,14 @@ function DashboardContent() {
                   )}
                   <p className="text-muted text-xs tracking-widest uppercase">Enterprise Compliance Control</p>
                 </div>
+                {stats.verificationNote && (
+                  <div className="mt-2 flex items-start gap-2 bg-accent-blue/10 border border-accent-blue/30 rounded-lg px-3 py-2">
+                    <span className="text-sm flex-shrink-0">ℹ️</span>
+                    <p className="text-[11px] text-accent-blue leading-relaxed">
+                      {stats.companyName} was amalgamated — this is normal for restructured corporations and does not affect LMIA eligibility.
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
 
