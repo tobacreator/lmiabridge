@@ -1,0 +1,51 @@
+﻿[dotenv@17.3.1] injecting env (5) from .env.local -- tip: ≡ƒöÉ prevent committing .env to code: https://dotenvx.com/precommit
+{
+  "advertisingSchedule": [
+    { 
+      "week": 1, 
+      "platform": "Job Bank", 
+      "actionRequired": "Post the job advertisement on Job Bank for a minimum of 28 days", 
+      "deadline": "Within 3 days of receiving the LMIA application number" 
+    },
+    { 
+      "week": 2, 
+      "platform": "Job Bank & LinkedIn Jobs Canada", 
+      "actionRequired": "Post the job advertisement on LinkedIn Jobs Canada and continue to post on Job Bank", 
+      "deadline": "By the end of week 2" 
+    },
+    { 
+      "week": 3, 
+      "platform": "Job Bank & Indeed Canada", 
+      "actionRequired": "Post the job advertisement on Indeed Canada and continue to post on Job Bank", 
+      "deadline": "By the end of week 3" 
+    },
+    { 
+      "week": 4, 
+      "platform": "Job Bank", 
+      "actionRequired": "Continue to post the job advertisement on Job Bank until the end of the 28-day advertising period", 
+      "deadline": "By the end of week 4" 
+    }
+  ],
+  "wageJustification": "The offered wage to John Doe is $120,000 per year, which is above the median wage for Senior Developers in the region, as determined by the Job Bank wage data.",
+  "transitionPlan": {
+    "year1": "Test Tech Corp will provide on-the-job training to John Doe to help him integrate into the team and develop the necessary skills to perform the job duties.",
+    "year2": "Test Tech Corp will provide opportunities for John Doe to mentor junior developers and participate in knowledge-sharing sessions to help transfer his skills to Canadian workers.",
+    "year3": "Test Tech Corp will work with John Doe to develop a plan for his eventual replacement by a Canadian worker, including training and development opportunities for Canadian employees.",
+    "canadianHiringGoals": "Test Tech Corp aims to hire at least 2 Canadian workers in the next 3 years to fill similar positions, and will work with local educational institutions to develop a pipeline of qualified Canadian candidates."
+  },
+  "evidenceRequirements": [
+    "A copy of the job advertisement posted on Job Bank, LinkedIn Jobs Canada, and Indeed Canada",
+    "Proof of payment for the job advertisements",
+    "A copy of the job offer letter to John Doe",
+    "A copy of John Doe's resume and qualifications",
+    "A copy of the company's financial statements to demonstrate the ability to pay the offered wage"
+  ],
+  "estimatedProcessingTime": "The estimated processing time for this LMIA application is 8-10 weeks, but may vary depending on the complexity of the application and the workload of the processing office.",
+  "gtsEligible": true,
+  "gtsCategory": "A",
+  "warningsAndRisks": [
+    "Failure to comply with the advertising requirements may result in the rejection of the LMIA application.",
+    "Failure to demonstrate the ability to pay the offered wage may result in the rejection of the LMIA application.",
+    "Failure to provide a comprehensive transition plan may result in the rejection of the LMIA application."
+  ]
+}

@@ -1,0 +1,18 @@
+[
+  { "code": "21230", "title": "Computer systems developers and programmers" },
+  { "code": "21232", "title": "Software developers and programmers" },
+  { "code": "21233", "title": "Web developers and programmers" },
+  { "code": "21234", "title": "Web designers" },
+  { "code": "21211", "title": "Data scientists" },
+  { "code": "21220", "title": "Cybersecurity specialists" },
+  { "code": "21310", "title": "Electrical and electronics engineers" },
+  { "code": "21311", "title": "Computer engineers (except software engineers and designers)" },
+  { "code": "22220", "title": "Computer network and web technicians" },
+  { "code": "22221", "title": "User support technicians" },
+  { "code": "12101", "title": "Executive assistants" },
+  { "code": "12200", "title": "Accounting and related clerks" },
+  { "code": "62020", "title": "Food service supervisors" },
+  { "code": "63200", "title": "Cooks" },
+  { "code": "72014", "title": "Contractors and supervisors, metal forming, shaping and erecting trades and Royal Canadian Mounted Police" },
+  { "code": "73300", "title": "Transport truck drivers" }
+]
