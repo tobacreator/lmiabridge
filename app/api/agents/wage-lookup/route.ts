@@ -4,6 +4,8 @@ import connectToDatabase from '@/lib/mongodb';
 import WageCache from '@/lib/models/WageCache';
 import nocJobBankIds from '@/data/noc-jobbank-ids.json';
 
+export const dynamic = 'force-dynamic';
+
 const TINYFISH_API_KEY = process.env.TINYFISH_API_KEY;
 const TINYFISH_URL = 'https://agent.tinyfish.ai/v1/automation/run-sse';
 

@@ -3,6 +3,7 @@ import connectToDatabase from '@/lib/mongodb';
 import Employer from '@/lib/models/Employer';
 import agentops from '@/lib/agentops';
 
+export const dynamic = 'force-dynamic';
 // export const runtime = 'edge';
 
 const TINYFISH_API_KEY = process.env.TINYFISH_API_KEY;

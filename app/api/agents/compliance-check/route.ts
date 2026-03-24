@@ -3,6 +3,7 @@ import connectToDatabase from '@/lib/mongodb';
 import Employer from '@/lib/models/Employer';
 import agentops from '@/lib/agentops';
 
+export const dynamic = 'force-dynamic';
 // export const runtime = 'edge';
 
 const TINYFISH_API_KEY = process.env.TINYFISH_API_KEY;
@@ -28,11 +29,19 @@ export async function POST(req: NextRequest) {
     const searchUrl = "https://www.canada.ca/en/employment-social-development/services/foreign-workers/employer-compliance.html";
     const goal = `Search for the employer named ${companyName} on this page or any linked compliance/non-compliant employer list. Return: { isCompliant: boolean, onBlacklist: boolean, violations: string[], lastChecked: string }. If you cannot find the employer listed, return { isCompliant: true, onBlacklist: false, violations: [], note: 'not found in non-compliant list' }`;
 
+    console.log(`[Compliance Check] Calling TinyFish for: ${companyName}`);
     const response = await fetch(TINYFISH_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-API-Key': TINYFISH_API_KEY },
       body: JSON.stringify({ url: searchUrl, goal })
     });
+
+    if (!response.ok) {
+      const errText = await response.text().catch(() => 'unknown');
+      console.error(`[Compliance Check] TinyFish API error: ${response.status} ${errText}`);
+      throw new Error(`TinyFish API failed: ${response.status}`);
+    }
+    console.log('[Compliance Check] TinyFish stream started');
 
     const { readable, writable } = new TransformStream();
     const writer = writable.getWriter();
@@ -57,6 +66,15 @@ export async function POST(req: NextRequest) {
         }
       };
 
+      // Heartbeat to prevent Vercel from closing the connection
+      const heartbeat = setInterval(() => {
+        try {
+          writer.write(encoder.encode('data: {"type":"HEARTBEAT"}\n\n'));
+        } catch {
+          clearInterval(heartbeat);
+        }
+      }, 15000);
+
       try {
         while (true) {
           const { done, value } = await reader.read();
@@ -74,7 +92,9 @@ export async function POST(req: NextRequest) {
                 try {
                     const data = JSON.parse(trimmed.slice(6));
                     if (data.run_id) runId = data.run_id;
-                    if (data.type === 'COMPLETE' || data.resultJson) resultJson = data.resultJson;
+                    if (data.type === 'COMPLETE') {
+                      resultJson = data.result || data.resultJson;
+                    }
                 } catch (e) {}
             }
           }
@@ -98,6 +118,7 @@ export async function POST(req: NextRequest) {
         console.error('[Compliance Check] Stream Error:', err);
         await safeWrite(`data: ${JSON.stringify({ error: err.message })}\n\n`);
       } finally {
+        clearInterval(heartbeat);
         console.log(`[Compliance Check] Finished in ${Date.now() - startTime}ms. Run ID: ${runId}`);
         try {
           await writer.close();
@@ -106,9 +127,15 @@ export async function POST(req: NextRequest) {
     })();
 
     return new Response(readable, {
-      headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive', 'X-Accel-Buffering': 'no' }
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache, no-transform',
+        'Connection': 'keep-alive',
+        'X-Accel-Buffering': 'no',
+      }
     });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error('[Compliance Check] Request Error:', error);
+    return NextResponse.json({ error: error.message, agent: 'compliance-check' }, { status: 500 });
   }
 }
