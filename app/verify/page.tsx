@@ -55,11 +55,12 @@ export default function VerifyPage() {
                 return;
               }
 
-              if (data.type === 'COMPLETE' && data.resultJson) {
+              if (data.type === 'COMPLETE' && (data.result || data.resultJson)) {
+                const res = data.result || data.resultJson;
                 setResult({
-                  isCompliant: data.resultJson.isCompliant,
-                  onBlacklist: data.resultJson.onBlacklist,
-                  violations: data.resultJson.violations || [],
+                  isCompliant: res.isCompliant,
+                  onBlacklist: res.onBlacklist,
+                  violations: res.violations || [],
                   runId: data.run_id || 'run_' + Math.random().toString(36).substring(7),
                 });
                 setAgentStatus('complete');

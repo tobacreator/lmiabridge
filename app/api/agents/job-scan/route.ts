@@ -75,6 +75,15 @@ export async function POST(req: NextRequest) {
         }
       };
 
+      // Heartbeat to prevent Vercel from closing the connection
+      const heartbeat = setInterval(() => {
+        try {
+          writer.write(encoder.encode('data: {"type":"HEARTBEAT"}\n\n'));
+        } catch {
+          clearInterval(heartbeat);
+        }
+      }, 15000);
+
       try {
         while (true) {
           const { done, value } = await reader.read();
@@ -124,9 +133,33 @@ export async function POST(req: NextRequest) {
         }
       } catch (err: any) {
         console.error('[Job Scan] Stream Processing Error:', err);
-        const errorMsg = JSON.stringify({ error: err.message, fallback: true, jobs: [] });
-        await safeWrite(`data: ${errorMsg}\n\n`);
+        // Fallback to MongoDB seed jobs
+        try {
+          await connectToDatabase();
+          const seedJobs = await JobPosting.find({}).limit(5).lean();
+          const fallbackData = JSON.stringify({
+            type: 'COMPLETE',
+            resultJson: {
+              jobs: seedJobs.map((j: any) => ({
+                jobTitle: j.jobTitle,
+                employer: 'Themis Solutions Inc.',
+                location: j.province,
+                salary: `$${j.wage?.toLocaleString()} annually`,
+                postedDate: new Date(j.createdAt).toLocaleDateString(),
+                jobUrl: j.sourceUrl,
+                _id: j._id
+              }))
+            },
+            fallback: true,
+            error: err.message
+          });
+          await safeWrite(`data: ${fallbackData}\n\n`);
+        } catch (dbErr) {
+          const errorMsg = JSON.stringify({ error: err.message, fallback: true, jobs: [] });
+          await safeWrite(`data: ${errorMsg}\n\n`);
+        }
       } finally {
+        clearInterval(heartbeat);
         const duration = Date.now() - startTime;
         console.log(`[Job Scan] Completed in ${duration}ms. Run ID: ${runId}`);
         try {
@@ -138,7 +171,7 @@ export async function POST(req: NextRequest) {
     return new Response(readable, {
       headers: {
         'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
+        'Cache-Control': 'no-cache, no-transform',
         'Connection': 'keep-alive',
         'X-Accel-Buffering': 'no',
       },
@@ -146,10 +179,29 @@ export async function POST(req: NextRequest) {
 
   } catch (error: any) {
     console.error('[Job Scan] Request Error:', error);
-    return NextResponse.json({ 
+    // Fallback to MongoDB seed jobs on outer error
+    try {
+      await connectToDatabase();
+      const seedJobs = await JobPosting.find({}).limit(5).lean();
+      return NextResponse.json({
+        jobs: seedJobs.map((j: any) => ({
+          jobTitle: j.jobTitle,
+          employer: 'Themis Solutions Inc.',
+          location: j.province,
+          salary: `$${j.wage?.toLocaleString()} annually`,
+          postedDate: new Date(j.createdAt).toLocaleDateString(),
+          jobUrl: j.sourceUrl,
+          _id: j._id
+        })),
+        fallback: true,
+        error: error.message
+      });
+    } catch {
+      return NextResponse.json({ 
         jobs: [], 
         error: error.message, 
         fallback: true 
-    }, { status: 500 });
+      }, { status: 500 });
+    }
   }
 }

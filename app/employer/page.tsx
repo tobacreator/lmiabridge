@@ -27,71 +27,75 @@ export default function EmployerOnboarding() {
     advertisingStartDate: new Date().toISOString().split('T')[0]
   });
 
-  // Manual wage check trigger
+  // Manual wage check trigger — handles both cached JSON and live SSE
   const handleWageCheck = async () => {
     setWageCheckStatus('loading');
+    setWageCheckResult(null);
+
     try {
-      const res = await fetch('/api/agents/wage-lookup', {
+      const response = await fetch('/api/agents/wage-lookup', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ nocCode: formData.nocCode, province: formData.province })
       });
-      if (res.ok) {
-        const contentType = res.headers.get('content-type') || '';
-        if (contentType.includes('application/json')) {
-          const data = await res.json();
-          setWageCheckResult(data);
-          const offeredHourly = parseFloat(formData.wage) / 2080;
-          setWageCheckStatus(offeredHourly >= data.medianWage ? 'compliant' : 'non-compliant');
-        } else {
-          const reader = res.body?.getReader();
-          const decoder = new TextDecoder();
-          let result: any = null;
-          let buffer = '';
-          if (reader) {
-            let done = false;
-            while (!done) {
-              const { value, done: streamDone } = await reader.read();
-              done = streamDone;
-              if (value) {
-                const chunk = decoder.decode(value, { stream: true });
-                buffer += chunk;
-                const lines = buffer.split('\n');
-                buffer = lines.pop() || '';
-                
-                for (const line of lines) {
-                  const trimmed = line.trim();
-                  if (trimmed.startsWith('data: ')) {
-                    try {
-                      const data = JSON.parse(trimmed.slice(6));
-                      console.log('[Wage Check] SSE data:', data);
-                      if (data.type === 'COMPLETE' && data.result) {
-                        result = data.result;
-                      } else if (data.resultJson) {
-                        result = data.resultJson;
-                      }
-                    } catch (e) {
-                      console.log('[Wage Check] Parse error:', e);
-                    }
-                  }
+
+      const contentType = response.headers.get('content-type') || '';
+
+      if (contentType.includes('text/event-stream')) {
+        // SSE stream — read until COMPLETE
+        const reader = response.body?.getReader();
+        const decoder = new TextDecoder();
+
+        if (!reader) throw new Error('No reader available');
+
+        let buffer = '';
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (trimmed.startsWith('data: ')) {
+              try {
+                const parsed = JSON.parse(trimmed.slice(6));
+                if (parsed.type === 'COMPLETE' && parsed.result) {
+                  setWageCheckResult(parsed.result);
+                  const offeredHourly = parseFloat(formData.wage) / 2080;
+                  setWageCheckStatus(
+                    (parsed.result.medianWage && offeredHourly >= parsed.result.medianWage)
+                      ? 'compliant' : 'non-compliant'
+                  );
+                  return;
                 }
-              }
+              } catch {}
             }
           }
-          if (result) {
-            console.log('[Wage Check] Result found:', result);
-            setWageCheckResult(result);
-            const offeredHourly = parseFloat(formData.wage) / 2080;
-            setWageCheckStatus(offeredHourly >= result.medianWage ? 'compliant' : 'non-compliant');
-          } else {
-            console.log('[Wage Check] No result found, status unchanged');
-            setWageCheckStatus('unchecked');
-          }
+        }
+      } else {
+        // Direct JSON response (cached)
+        const data = await response.json();
+
+        // Handle both direct and nested formats
+        const result = data.result || data;
+
+        if (result.medianWage) {
+          setWageCheckResult(result);
+          const offeredHourly = parseFloat(formData.wage) / 2080;
+          setWageCheckStatus(
+            offeredHourly >= result.medianWage ? 'compliant' : 'non-compliant'
+          );
+        } else {
+          throw new Error('No wage data in response');
         }
       }
-    } catch (e) {
-      console.error('Wage check error:', e);
+    } catch (error) {
+      console.error('Wage fetch error:', error);
       setWageCheckStatus('unchecked');
+      setWageCheckResult(null);
     }
   };
 
