@@ -11,6 +11,22 @@ export async function GET() {
   try {
     await connectToDatabase();
 
+    // Calculate advertising dates (3 weeks ago)
+    const threeWeeksAgo = new Date();
+    threeWeeksAgo.setDate(threeWeeksAgo.getDate() - 21);
+    threeWeeksAgo.setHours(9, 0, 0, 0);
+
+    const week1End = new Date(threeWeeksAgo);
+    week1End.setDate(week1End.getDate() + 7);
+    const week2End = new Date(threeWeeksAgo);
+    week2End.setDate(week2End.getDate() + 14);
+    const week3End = new Date(threeWeeksAgo);
+    week3End.setDate(week3End.getDate() + 21);
+    const week4End = new Date(threeWeeksAgo);
+    week4End.setDate(week4End.getDate() + 28);
+
+    const today = new Date();
+
     // Check if seed data already exists
     const existingEmployer = await Employer.findOne({ companyName: 'Themis Solutions Inc.' });
     
@@ -41,6 +57,7 @@ export async function GET() {
       nocCode: '21232',
       offeredWage: 110000,
       employeeCount: 900,
+      advertisingStartDate: threeWeeksAgo,
       verificationStatus: 'verified',
       verificationNote: 'Company amalgamated — common for restructured corporations. Verified as legitimate Canadian business entity.',
     });
@@ -112,10 +129,38 @@ export async function GET() {
       complianceStatus: 'viable',
       gtsEligible: true,
       advertisingSchedule: [
-        { week: 1, platform: 'Job Bank Canada', action: 'Post Software Developer listing', deadline: 'Day 7', status: 'complete' },
-        { week: 2, platform: 'LinkedIn Jobs Canada', action: 'Post identical listing', deadline: 'Day 14', status: 'pending' },
-        { week: 3, platform: 'Indeed Canada', action: 'Post listing, log all responses', deadline: 'Day 21', status: 'pending' },
-        { week: 4, platform: 'All Platforms', action: 'Close postings, compile evidence', deadline: 'Day 28', status: 'pending' },
+        {
+          week: 1,
+          platform: 'Job Bank Canada',
+          actionRequired: 'Post Software Developer (NOC 21232) listing',
+          deadline: 'Week 1',
+          deadlineDate: week1End.toLocaleDateString('en-CA', { year: 'numeric', month: 'long', day: 'numeric' }),
+          status: week1End < today ? 'complete' : 'pending',
+        },
+        {
+          week: 2,
+          platform: 'LinkedIn Jobs Canada',
+          actionRequired: 'Post identical listing on LinkedIn Jobs',
+          deadline: 'Week 2',
+          deadlineDate: week2End.toLocaleDateString('en-CA', { year: 'numeric', month: 'long', day: 'numeric' }),
+          status: week2End < today ? 'complete' : 'pending',
+        },
+        {
+          week: 3,
+          platform: 'Indeed Canada',
+          actionRequired: 'Post listing and log all applicant responses',
+          deadline: 'Week 3',
+          deadlineDate: week3End.toLocaleDateString('en-CA', { year: 'numeric', month: 'long', day: 'numeric' }),
+          status: week3End < today ? 'complete' : 'pending',
+        },
+        {
+          week: 4,
+          platform: 'All Platforms',
+          actionRequired: 'Close all postings and compile evidence package',
+          deadline: 'Week 4',
+          deadlineDate: week4End.toLocaleDateString('en-CA', { year: 'numeric', month: 'long', day: 'numeric' }),
+          status: week4End < today ? 'complete' : 'pending',
+        },
       ],
       transitionPlan: {
         year1: 'Implement internal mentorship program pairing foreign worker with Canadian junior developers at Clio. Launch targeted hackathons to identify local talent.',

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/mongodb';
 import Employer from '@/lib/models/Employer';
 import agentops from '@/lib/agentops';
+import AgentRun from '@/lib/models/AgentRun';
 
 export const dynamic = 'force-dynamic';
 // export const runtime = 'edge';
@@ -119,7 +120,13 @@ export async function POST(req: NextRequest) {
         await safeWrite(`data: ${JSON.stringify({ error: err.message })}\n\n`);
       } finally {
         clearInterval(heartbeat);
-        console.log(`[Compliance Check] Finished in ${Date.now() - startTime}ms. Run ID: ${runId}`);
+        const duration = Date.now() - startTime;
+        console.log(`[Compliance Check] Finished in ${duration}ms. Run ID: ${runId}`);
+        // Record agent run
+        try {
+          await connectToDatabase();
+          await AgentRun.create({ agent: 'COMPLIANCE_CHECK', runId: runId || 'unknown', status: resultJson ? 'COMPLETE' : 'FAILED', duration, meta: { companyName } });
+        } catch (e) { console.error('[Compliance Check] AgentRun save error:', e); }
         try {
           await writer.close();
         } catch (e) {}

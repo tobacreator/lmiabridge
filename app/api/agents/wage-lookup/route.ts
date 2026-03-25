@@ -3,6 +3,7 @@ import agentops from '@/lib/agentops';
 import connectToDatabase from '@/lib/mongodb';
 import WageCache from '@/lib/models/WageCache';
 import nocJobBankIds from '@/data/noc-jobbank-ids.json';
+import AgentRun from '@/lib/models/AgentRun';
 
 export const dynamic = 'force-dynamic';
 
@@ -158,6 +159,12 @@ Return ONLY this JSON:
 
       const duration = Date.now() - startTime;
       console.log(`[Wage Lookup] Success in ${duration}ms. Run ID: ${tfResult.runId}`);
+
+      // Record agent run
+      try {
+        await AgentRun.create({ agent: 'WAGE_LOOKUP', runId: tfResult.runId || 'unknown', status: 'COMPLETE', duration, meta: { nocCode, province } });
+      } catch (e) { console.error('[Wage Lookup] AgentRun save error:', e); }
+
       return NextResponse.json({
         ...tfResult.result,
         nocCode,

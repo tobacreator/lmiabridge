@@ -690,32 +690,66 @@ export default function LMIAComplianceTab({ onGoToWorkers }: { onGoToWorkers: ()
           {/* PHASE 1: Advertising Calendar */}
           <div className="p-6 border-b border-border">
             <h4 className="text-xs font-mono text-muted uppercase tracking-wider mb-4">Phase 1 — Advertising Calendar</h4>
+
+            {/* Advertising Banner */}
+            {(() => {
+              const daysSinceStart = Math.floor(
+                (Date.now() - new Date(employer?.advertisingStartDate || startDate).getTime()) / (1000 * 60 * 60 * 24)
+              );
+              const currentWeek = Math.min(Math.ceil(daysSinceStart / 7), 4);
+              const weeksRemaining = Math.max(4 - currentWeek, 0);
+              return (
+                <div className="bg-accent-blue/10 border border-accent-blue/30 rounded-lg px-4 py-3 mb-4 flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">📅</span>
+                    <span className="text-sm font-bold text-accent-blue">
+                      Advertising started: {formatDate(employer?.advertisingStartDate)}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-4 text-xs font-mono">
+                    <span className="text-accent-blue font-bold">Week {currentWeek} of 4</span>
+                    <span className="text-muted">·</span>
+                    <span className={`font-bold ${weeksRemaining === 0 ? 'text-accent-green' : 'text-accent-amber'}`}>
+                      {weeksRemaining === 0 ? 'Advertising complete' : `${weeksRemaining} week${weeksRemaining !== 1 ? 's' : ''} remaining`}
+                    </span>
+                  </div>
+                </div>
+              );
+            })()}
+
             <div className="space-y-3">
-              {adWeeks.map((w) => (
+              {adWeeks.map((w) => {
+                const daysSinceStart = Math.floor(
+                  (Date.now() - new Date(employer?.advertisingStartDate || startDate).getTime()) / (1000 * 60 * 60 * 24)
+                );
+                const currentWeek = Math.min(Math.ceil(daysSinceStart / 7), 4);
+                return (
                 <div key={w.week} className={`border rounded-lg p-4 ${
                   w.status === 'complete' ? 'border-accent-green/30 bg-accent-green/5' :
                   w.status === 'active' ? 'border-accent-amber/30 bg-accent-amber/5' :
-                  'border-border bg-surface'
+                  'border-border bg-surface/50 opacity-70'
                 }`}>
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-3">
+                      {w.status === 'complete' && <span className="text-accent-green text-lg">&#10003;</span>}
+                      {w.status === 'active' && <span className="w-2.5 h-2.5 rounded-full bg-accent-amber animate-pulse inline-block" />}
+                      {w.status === 'upcoming' && <span className="text-muted text-sm">&#128274;</span>}
                       <span className={`text-sm font-bold ${
                         w.status === 'complete' ? 'text-accent-green' : w.status === 'active' ? 'text-accent-amber' : 'text-muted'
                       }`}>WEEK {w.week}</span>
                       <span className={`text-sm font-bold ${w.status === 'active' ? 'text-accent-blue' : w.status === 'complete' ? 'text-primary' : 'text-muted'}`}>{w.platform}</span>
                     </div>
                     <span className={`px-2.5 py-1 rounded text-[10px] font-bold uppercase ${
-                      w.status === 'complete' ? 'bg-accent-green/10 text-accent-green' :
+                      w.status === 'complete' ? 'bg-accent-green/10 text-accent-green border border-accent-green/30' :
                       w.status === 'active' ? 'bg-accent-amber text-bg' :
-                      'bg-surface text-muted'
+                      'bg-surface text-muted border border-border'
                     }`}>
-                      {w.status === 'complete' ? '✅ COMPLETE' : w.status === 'active' ? '⚡ ACTIVE — Post now' : '⏳ UPCOMING'}
+                      {w.status === 'complete' ? 'COMPLETE' : w.status === 'active' ? 'ACTIVE THIS WEEK' : 'UPCOMING'}
                     </span>
                   </div>
                   <p className={`text-xs ${w.status === 'complete' ? 'text-muted line-through' : 'text-primary/80'}`}>{w.action}</p>
                   <div className="flex gap-4 mt-2 text-[10px] text-muted font-mono">
-                    <span>Post: {formatDate(w.startDate)}</span>
-                    <span>Close: {formatDate(w.endDate)}</span>
+                    <span>Deadline: {formatDate(w.endDate)}</span>
                   </div>
                   <div className="mt-2">
                     <label className="flex items-center gap-2 text-xs cursor-pointer">
@@ -729,7 +763,8 @@ export default function LMIAComplianceTab({ onGoToWorkers }: { onGoToWorkers: ()
                     </label>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
             <div className="bg-surface/50 p-3 mt-3 rounded-lg">
               <p className="text-xs text-muted italic font-mono">LMIA regulations require advertising on at least 3 platforms over 4 consecutive weeks.</p>

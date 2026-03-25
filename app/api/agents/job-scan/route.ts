@@ -3,6 +3,7 @@ import connectToDatabase from '@/lib/mongodb';
 import JobPosting from '@/lib/models/JobPosting';
 import Employer from '@/lib/models/Employer'; // Ensure Employer model is registered
 import agentops from '@/lib/agentops';
+import AgentRun from '@/lib/models/AgentRun';
 
 export const dynamic = 'force-dynamic';
 // export const runtime = 'edge';
@@ -162,6 +163,11 @@ export async function POST(req: NextRequest) {
         clearInterval(heartbeat);
         const duration = Date.now() - startTime;
         console.log(`[Job Scan] Completed in ${duration}ms. Run ID: ${runId}`);
+        // Record agent run
+        try {
+          await connectToDatabase();
+          await AgentRun.create({ agent: 'JOB_SCAN', runId: runId || 'unknown', status: 'COMPLETE', duration });
+        } catch (e) { console.error('[Job Scan] AgentRun save error:', e); }
         try {
           await writer.close();
         } catch (e) {}
