@@ -10,7 +10,7 @@
       "maxDuration": 300
     },
     "app/api/agents/wage-lookup/route.ts": {
-      "maxDuration": 60
+      "maxDuration": 300
     },
     "app/api/agents/compliance-check/route.ts": {
       "maxDuration": 300
