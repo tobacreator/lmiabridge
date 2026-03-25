@@ -76,109 +76,105 @@ Return ONLY this JSON:
   "outlook": string
 }`;
 
-    console.log(`[Wage Lookup] Calling TinyFish for NOC ${nocCode} / ${province}`);
-    const response = await fetch(TINYFISH_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-API-Key': TINYFISH_API_KEY },
-      body: JSON.stringify({ url: searchUrl, goal })
-    });
+    // Helper: call TinyFish and consume SSE server-side, return extracted result
+    const callTinyFish = async (attempt: number): Promise<{ result: any; runId: string | null; cancelled: boolean }> => {
+      console.log(`[Wage Lookup] Attempt ${attempt}: Calling TinyFish for NOC ${nocCode} / ${province}`);
+      const tfResponse = await fetch(TINYFISH_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-API-Key': TINYFISH_API_KEY! },
+        body: JSON.stringify({ url: searchUrl, goal })
+      });
 
-    if (!response.ok) {
-      const errText = await response.text().catch(() => 'unknown');
-      console.error(`[Wage Lookup] TinyFish API error: ${response.status} ${errText}`);
-      throw new Error(`TinyFish API failed: ${response.status}`);
-    }
-    console.log('[Wage Lookup] TinyFish stream started');
+      if (!tfResponse.ok) {
+        const errText = await tfResponse.text().catch(() => 'unknown');
+        throw new Error(`TinyFish API error ${tfResponse.status}: ${errText}`);
+      }
 
-    const { readable, writable } = new TransformStream();
-    const writer = writable.getWriter();
-    const encoder = new TextEncoder();
-    const decoder = new TextDecoder();
+      const reader = tfResponse.body?.getReader();
+      if (!reader) throw new Error('No response body from TinyFish');
 
-    (async () => {
+      const decoder = new TextDecoder();
+      let buffer = '';
       let resultJson: any = null;
       let runId: string | null = null;
-      let buffer = '';
-      const reader = response.body?.getReader();
-      if (!reader) {
-        try { await writer.close(); } catch (e) {}
-        return;
+      let cancelled = false;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (trimmed.startsWith('data: ') || trimmed.startsWith('data:')) {
+            const jsonStr = trimmed.startsWith('data: ') ? trimmed.slice(6) : trimmed.slice(5);
+            try {
+              const data = JSON.parse(jsonStr);
+              if (data.run_id) runId = data.run_id;
+              if (data.type === 'COMPLETE') {
+                if (data.status === 'CANCELLED') {
+                  console.warn(`[Wage Lookup] Run ${runId} was CANCELLED`);
+                  cancelled = true;
+                } else if (data.result) {
+                  resultJson = data.result;
+                } else if (data.resultJson) {
+                  resultJson = data.resultJson;
+                }
+              }
+            } catch {}
+          }
+        }
       }
 
-      const safeWrite = async (data: string) => {
-        try {
-          await writer.write(encoder.encode(data));
-        } catch (e) {
-          console.warn('[Wage Lookup] Write failed (probably disconnected)');
-        }
-      };
+      return { result: resultJson, runId, cancelled };
+    }
 
-      // Heartbeat to prevent Vercel from closing the connection
-      const heartbeat = setInterval(() => {
-        try {
-          writer.write(encoder.encode('data: {"type":"HEARTBEAT"}\n\n'));
-        } catch {
-          clearInterval(heartbeat);
-        }
-      }, 15000);
+    // Attempt 1
+    let tfResult = await callTinyFish(1);
 
+    // Retry once if cancelled
+    if (tfResult.cancelled && !tfResult.result) {
+      console.log('[Wage Lookup] Retrying after cancellation...');
+      await new Promise(r => setTimeout(r, 2000));
+      tfResult = await callTinyFish(2);
+    }
+
+    if (tfResult.result) {
+      console.log('[Wage Lookup] Data extracted:', tfResult.result);
+      // Save to cache
       try {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          const chunk = decoder.decode(value, { stream: true });
-          await safeWrite(chunk);
-
-          buffer += chunk;
-          const lines = buffer.split('\n');
-          buffer = lines.pop() || '';
-
-          for (const line of lines) {
-            const trimmed = line.trim();
-            if (trimmed.startsWith('data: ')) {
-              try {
-                const data = JSON.parse(trimmed.slice(6));
-                if (data.run_id) runId = data.run_id;
-                if (data.type === 'COMPLETE' && data.result) resultJson = data.result;
-                else if (data.resultJson) resultJson = data.resultJson;
-              } catch (e) {}
-            }
-          }
-        }
-        if (resultJson) {
-          console.log('[Wage Lookup] Data extracted:', resultJson);
-          // Save to cache
-          try {
-            await WageCache.findOneAndUpdate(
-              { nocCode, province },
-              { nocCode, province, data: resultJson, tinyfishRunId: runId, cachedAt: new Date() },
-              { upsert: true }
-            );
-            console.log('[Wage Lookup] Cached result in MongoDB');
-          } catch (cacheErr) {
-            console.error('[Wage Lookup] Cache save error:', cacheErr);
-          }
-        }
-      } catch (err: any) {
-         console.error('[Wage Lookup] Stream Error:', err);
-         await safeWrite(`data: ${JSON.stringify({ error: err.message })}\n\n`);
-      } finally {
-        clearInterval(heartbeat);
-        console.log(`[Wage Lookup] Finished in ${Date.now() - startTime}ms. Run ID: ${runId}`);
-        try {
-          await writer.close();
-        } catch (e) {}
+        await WageCache.findOneAndUpdate(
+          { nocCode, province },
+          { nocCode, province, data: tfResult.result, tinyfishRunId: tfResult.runId, cachedAt: new Date() },
+          { upsert: true }
+        );
+        console.log('[Wage Lookup] Cached result in MongoDB');
+      } catch (cacheErr) {
+        console.error('[Wage Lookup] Cache save error:', cacheErr);
       }
-    })();
 
-    return new Response(readable, {
-      headers: {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache, no-transform',
-        'Connection': 'keep-alive',
-        'X-Accel-Buffering': 'no',
-      }
-    });
+      const duration = Date.now() - startTime;
+      console.log(`[Wage Lookup] Success in ${duration}ms. Run ID: ${tfResult.runId}`);
+      return NextResponse.json({
+        ...tfResult.result,
+        nocCode,
+        province,
+        cached: false,
+        runId: tfResult.runId
+      });
+    }
+
+    // No result — return error
+    const duration = Date.now() - startTime;
+    console.error(`[Wage Lookup] No result after ${duration}ms. Cancelled: ${tfResult.cancelled}`);
+    return NextResponse.json({
+      error: tfResult.cancelled ? 'TinyFish run was cancelled' : 'No wage data extracted',
+      nocCode,
+      province
+    }, { status: 502 });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
