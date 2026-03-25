@@ -696,7 +696,7 @@ export default function LMIAComplianceTab({ onGoToWorkers }: { onGoToWorkers: ()
               const daysSinceStart = Math.floor(
                 (Date.now() - new Date(employer?.advertisingStartDate || startDate).getTime()) / (1000 * 60 * 60 * 24)
               );
-              const currentWeek = Math.min(Math.ceil(daysSinceStart / 7), 4);
+              const currentWeek = Math.min(Math.floor(daysSinceStart / 7) + 1, 4);
               const weeksRemaining = Math.max(4 - currentWeek, 0);
               return (
                 <div className="bg-accent-blue/10 border border-accent-blue/30 rounded-lg px-4 py-3 mb-4 flex items-center justify-between flex-wrap gap-2">
@@ -722,7 +722,7 @@ export default function LMIAComplianceTab({ onGoToWorkers }: { onGoToWorkers: ()
                 const daysSinceStart = Math.floor(
                   (Date.now() - new Date(employer?.advertisingStartDate || startDate).getTime()) / (1000 * 60 * 60 * 24)
                 );
-                const currentWeek = Math.min(Math.ceil(daysSinceStart / 7), 4);
+                const currentWeek = Math.min(Math.floor(daysSinceStart / 7) + 1, 4);
                 return (
                 <div key={w.week} className={`border rounded-lg p-4 ${
                   w.status === 'complete' ? 'border-accent-green/30 bg-accent-green/5' :
