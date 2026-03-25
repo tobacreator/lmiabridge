@@ -4,6 +4,7 @@ import Employer from '@/lib/models/Employer';
 import Worker from '@/lib/models/Worker';
 import JobPosting from '@/lib/models/JobPosting';
 import LMIAApplication from '@/lib/models/LMIAApplication';
+import AgentRun from '@/lib/models/AgentRun';
 
 export const dynamic = 'force-dynamic';
 
@@ -190,6 +191,18 @@ export async function GET() {
       gtsEligible: true,
       advertisingSchedule: [],
     });
+
+    // Seed agent run history
+    const now = new Date();
+    await AgentRun.insertMany([
+      { agent: 'VERIFY_EMPLOYER', runId: 'tf_seed_verify_001', status: 'COMPLETE', duration: 8200, meta: { companyName: 'Themis Solutions Inc.' }, createdAt: new Date(now.getTime() - 21 * 86400000) },
+      { agent: 'JOB_SCAN', runId: 'tf_seed_jobscan_001', status: 'COMPLETE', duration: 12400, createdAt: new Date(now.getTime() - 20 * 86400000) },
+      { agent: 'WAGE_LOOKUP', runId: 'tf_seed_wage_001', status: 'COMPLETE', duration: 9800, meta: { nocCode: '21232', province: 'ON' }, createdAt: new Date(now.getTime() - 19 * 86400000) },
+      { agent: 'COMPLIANCE_CHECK', runId: 'tf_seed_compliance_001', status: 'COMPLETE', duration: 6500, meta: { companyName: 'Themis Solutions Inc.' }, createdAt: new Date(now.getTime() - 18 * 86400000) },
+      { agent: 'JOB_SCAN', runId: 'tf_seed_jobscan_002', status: 'COMPLETE', duration: 11200, createdAt: new Date(now.getTime() - 14 * 86400000) },
+      { agent: 'WAGE_LOOKUP', runId: 'tf_seed_wage_002', status: 'COMPLETE', duration: 7600, meta: { nocCode: '21232', province: 'ON' }, createdAt: new Date(now.getTime() - 7 * 86400000) },
+      { agent: 'JOB_SCAN', runId: 'tf_seed_jobscan_003', status: 'COMPLETE', duration: 10100, createdAt: new Date(now.getTime() - 3 * 86400000) },
+    ]);
 
     return NextResponse.json({
       message: 'Seed data created successfully',
