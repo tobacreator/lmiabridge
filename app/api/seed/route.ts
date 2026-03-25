@@ -91,6 +91,8 @@ export async function GET() {
       institutionName: 'University of Lagos',
       professionalSummary: 'Senior software engineer with 5 years building fintech payment infrastructure in West Africa. Specializing in Ruby on Rails and React. Targeting Canadian tech sector.',
     });
+    worker.workerPageUrl = `/worker/profile/${worker._id}`;
+    await worker.save();
 
     // Create Priya Sharma worker
     const worker2 = await Worker.create({
@@ -110,6 +112,8 @@ export async function GET() {
       institutionName: 'IIT Delhi',
       professionalSummary: 'Full-stack engineer with 4 years enterprise software experience. Targeting Canadian tech sector with strong Java and React background.',
     });
+    worker2.workerPageUrl = `/worker/profile/${worker2._id}`;
+    await worker2.save();
 
     // Create LMIA Application with pre-scored match
     const application = await LMIAApplication.create({

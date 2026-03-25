@@ -53,7 +53,9 @@ function MatchResultsContent() {
     const fetchMatches = async () => {
       setLoading(true);
       try {
-        const res = await fetch('/api/matches');
+        const params = new URLSearchParams();
+        if (workerId) params.set('workerId', workerId);
+        const res = await fetch(`/api/matches?${params.toString()}`);
         if (res.ok) {
           const data = await res.json();
           setMatches(data);
@@ -66,7 +68,7 @@ function MatchResultsContent() {
     };
 
     fetchMatches();
-  }, [noc, province]);
+  }, [noc, province, workerId]);
 
   const handleGeneratePack = async (lmiaApplicationId: string) => {
     setGeneratingPack(lmiaApplicationId);

@@ -41,6 +41,38 @@ export default function WorkerOnboarding() {
   const [agentStatus, setAgentStatus] = useState<'idle' | 'running' | 'complete' | 'error'>('idle');
   const [agentMessage, setAgentMessage] = useState('');
 
+  // Returning worker lookup
+  const [showLookup, setShowLookup] = useState(false);
+  const [lookupEmail, setLookupEmail] = useState('');
+  const [lookupLoading, setLookupLoading] = useState(false);
+  const [lookupError, setLookupError] = useState('');
+  const [lookupResult, setLookupResult] = useState<{ workerId: string; name: string; nocCode: string; matchCount: number } | null>(null);
+
+  const handleLookup = async () => {
+    if (!lookupEmail.trim()) return;
+    setLookupLoading(true);
+    setLookupError('');
+    setLookupResult(null);
+    try {
+      const res = await fetch('/api/workers/lookup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: lookupEmail.trim() }),
+      });
+      if (res.status === 404) {
+        setLookupError('No profile found for this email. Try creating a new one below.');
+        return;
+      }
+      if (!res.ok) throw new Error('Lookup failed');
+      const data = await res.json();
+      setLookupResult(data);
+    } catch (e: any) {
+      setLookupError(e.message || 'Something went wrong');
+    } finally {
+      setLookupLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetch('/data/noc-codes.json')
       .then(res => res.json())
@@ -156,6 +188,84 @@ export default function WorkerOnboarding() {
           WORKER_ONBOARDING
         </h1>
         <p className="text-muted text-sm tracking-widest uppercase">Canada Immigration Matching Engine</p>
+      </div>
+
+      {/* Returning Worker Lookup */}
+      <div className="mb-8 bg-card border border-border rounded-2xl p-6">
+        <button
+          onClick={() => setShowLookup(!showLookup)}
+          className="w-full flex items-center justify-between text-left"
+        >
+          <div className="flex items-center gap-3">
+            <span className="text-lg">🔑</span>
+            <div>
+              <p className="text-sm font-bold text-primary">Already have a profile?</p>
+              <p className="text-xs text-muted">Look up your existing profile and matches by email</p>
+            </div>
+          </div>
+          <span className={`text-muted transition-transform ${showLookup ? 'rotate-180' : ''}`}>▼</span>
+        </button>
+
+        {showLookup && (
+          <div className="mt-4 pt-4 border-t border-border space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+            <div className="flex gap-3">
+              <input
+                type="email"
+                className="flex-1 bg-bg border border-border rounded-lg px-4 py-3 focus:border-accent-blue outline-none transition-colors text-sm"
+                placeholder="Enter your email address..."
+                value={lookupEmail}
+                onChange={(e) => setLookupEmail(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleLookup()}
+              />
+              <button
+                onClick={handleLookup}
+                disabled={lookupLoading || !lookupEmail.trim()}
+                className="bg-accent-blue hover:bg-blue-600 text-bg font-bold px-6 py-3 rounded-lg text-sm transition-all disabled:opacity-50"
+              >
+                {lookupLoading ? 'Searching...' : 'FIND PROFILE'}
+              </button>
+            </div>
+
+            {lookupError && (
+              <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-red-400 text-xs font-mono">
+                {lookupError}
+              </div>
+            )}
+
+            {lookupResult && (
+              <div className="bg-accent-green/5 border border-accent-green/30 rounded-xl p-5 space-y-3 animate-in fade-in zoom-in-95 duration-300">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-lg font-bold text-primary">{lookupResult.name}</p>
+                    <p className="text-xs text-muted font-mono">NOC {lookupResult.nocCode} · {lookupResult.matchCount} match{lookupResult.matchCount !== 1 ? 'es' : ''} found</p>
+                  </div>
+                  <span className="text-accent-green text-2xl">✓</span>
+                </div>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => router.push(`/worker/matches?workerId=${lookupResult.workerId}&noc=${lookupResult.nocCode}`)}
+                    className="flex-1 bg-accent-green hover:bg-green-500 text-bg font-bold py-3 rounded-lg text-sm transition-all"
+                  >
+                    VIEW MATCHES
+                  </button>
+                  <button
+                    onClick={() => router.push(`/worker/profile/${lookupResult.workerId}`)}
+                    className="flex-1 bg-surface hover:bg-surface/80 text-primary font-bold py-3 rounded-lg text-sm border border-border transition-all"
+                  >
+                    VIEW PROFILE
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* New Worker Label */}
+      <div className="mb-4 flex items-center gap-3">
+        <div className="h-px flex-1 bg-border" />
+        <span className="text-xs font-mono text-muted uppercase tracking-widest">New Worker Registration</span>
+        <div className="h-px flex-1 bg-border" />
       </div>
 
       {/* Progress Bar */}

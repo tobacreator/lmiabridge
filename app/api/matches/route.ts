@@ -13,8 +13,14 @@ export async function GET(req: NextRequest) {
     console.log('[Matches API] GET request received');
     await connectToDatabase();
     console.log('[Matches API] Connected to DB');
+
+    const { searchParams } = new URL(req.url);
+    const workerId = searchParams.get('workerId');
     
-    const apps = await LMIAApplication.find({})
+    const query: any = {};
+    if (workerId) query.worker = workerId;
+
+    const apps = await LMIAApplication.find(query)
       .populate('employer')
       .populate('jobPosting')
       .lean();
