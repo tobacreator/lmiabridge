@@ -49,6 +49,7 @@ export default function EmployerOnboarding() {
         if (!reader) throw new Error('No reader available');
 
         let buffer = '';
+        let foundResult = false;
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
@@ -62,6 +63,7 @@ export default function EmployerOnboarding() {
             if (trimmed.startsWith('data: ')) {
               try {
                 const parsed = JSON.parse(trimmed.slice(6));
+                if (parsed.type === 'HEARTBEAT') continue;
                 if (parsed.type === 'COMPLETE' && parsed.result) {
                   setWageCheckResult(parsed.result);
                   const offeredHourly = parseFloat(formData.wage) / 2080;
@@ -69,11 +71,18 @@ export default function EmployerOnboarding() {
                     (parsed.result.medianWage && offeredHourly >= parsed.result.medianWage)
                       ? 'compliant' : 'non-compliant'
                   );
+                  foundResult = true;
                   return;
                 }
               } catch {}
             }
           }
+        }
+        // Stream ended without COMPLETE — reset so UI doesn't stay stuck
+        if (!foundResult) {
+          console.error('Wage check: SSE stream ended without COMPLETE event');
+          setWageCheckStatus('unchecked');
+          setWageCheckResult(null);
         }
       } else {
         // Direct JSON response (cached)

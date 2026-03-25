@@ -76,11 +76,19 @@ Return ONLY this JSON:
   "outlook": string
 }`;
 
+    console.log(`[Wage Lookup] Calling TinyFish for NOC ${nocCode} / ${province}`);
     const response = await fetch(TINYFISH_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-API-Key': TINYFISH_API_KEY },
       body: JSON.stringify({ url: searchUrl, goal })
     });
+
+    if (!response.ok) {
+      const errText = await response.text().catch(() => 'unknown');
+      console.error(`[Wage Lookup] TinyFish API error: ${response.status} ${errText}`);
+      throw new Error(`TinyFish API failed: ${response.status}`);
+    }
+    console.log('[Wage Lookup] TinyFish stream started');
 
     const { readable, writable } = new TransformStream();
     const writer = writable.getWriter();
@@ -104,6 +112,15 @@ Return ONLY this JSON:
           console.warn('[Wage Lookup] Write failed (probably disconnected)');
         }
       };
+
+      // Heartbeat to prevent Vercel from closing the connection
+      const heartbeat = setInterval(() => {
+        try {
+          writer.write(encoder.encode('data: {"type":"HEARTBEAT"}\n\n'));
+        } catch {
+          clearInterval(heartbeat);
+        }
+      }, 15000);
 
       try {
         while (true) {
@@ -146,6 +163,7 @@ Return ONLY this JSON:
          console.error('[Wage Lookup] Stream Error:', err);
          await safeWrite(`data: ${JSON.stringify({ error: err.message })}\n\n`);
       } finally {
+        clearInterval(heartbeat);
         console.log(`[Wage Lookup] Finished in ${Date.now() - startTime}ms. Run ID: ${runId}`);
         try {
           await writer.close();
@@ -154,7 +172,12 @@ Return ONLY this JSON:
     })();
 
     return new Response(readable, {
-      headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive', 'X-Accel-Buffering': 'no' }
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache, no-transform',
+        'Connection': 'keep-alive',
+        'X-Accel-Buffering': 'no',
+      }
     });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
