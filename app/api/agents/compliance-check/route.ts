@@ -3,6 +3,7 @@ import connectToDatabase from '@/lib/mongodb';
 import Employer from '@/lib/models/Employer';
 import agentops from '@/lib/agentops';
 import AgentRun from '@/lib/models/AgentRun';
+import { logTelemetryEvent } from '@/lib/telemetry';
 
 export const dynamic = 'force-dynamic';
 // export const runtime = 'edge';
@@ -27,8 +28,17 @@ export async function POST(req: NextRequest) {
 
   try {
     const { companyName, craBN } = await req.json();
+    const requestPath = req.nextUrl?.pathname;
     const searchUrl = "https://www.canada.ca/en/employment-social-development/services/foreign-workers/employer-compliance.html";
     const goal = `Search for the employer named ${companyName} on this page or any linked compliance/non-compliant employer list. Return: { isCompliant: boolean, onBlacklist: boolean, violations: string[], lastChecked: string }. If you cannot find the employer listed, return { isCompliant: true, onBlacklist: false, violations: [], note: 'not found in non-compliant list' }`;
+
+    await logTelemetryEvent(req, {
+      type: 'agent_start',
+      path: requestPath,
+      agent: 'COMPLIANCE_CHECK',
+      status: 'RUNNING',
+      meta: { companyName },
+    });
 
     console.log(`[Compliance Check] Calling TinyFish for: ${companyName}`);
     const response = await fetch(TINYFISH_URL, {
@@ -127,6 +137,16 @@ export async function POST(req: NextRequest) {
           await connectToDatabase();
           await AgentRun.create({ agent: 'COMPLIANCE_CHECK', runId: runId || 'unknown', status: resultJson ? 'COMPLETE' : 'FAILED', duration, meta: { companyName } });
         } catch (e) { console.error('[Compliance Check] AgentRun save error:', e); }
+
+        await logTelemetryEvent(req, {
+          type: 'agent_complete',
+          path: requestPath,
+          agent: 'COMPLIANCE_CHECK',
+          runId,
+          status: resultJson ? 'COMPLETE' : 'FAILED',
+          meta: { companyName, duration },
+        });
+
         try {
           await writer.close();
         } catch (e) {}
@@ -143,6 +163,13 @@ export async function POST(req: NextRequest) {
     });
   } catch (error: any) {
     console.error('[Compliance Check] Request Error:', error);
+    await logTelemetryEvent(req, {
+      type: 'agent_error',
+      path: req.nextUrl?.pathname,
+      agent: 'COMPLIANCE_CHECK',
+      status: 'FAILED',
+      meta: { message: error?.message },
+    });
     return NextResponse.json({ error: error.message, agent: 'compliance-check' }, { status: 500 });
   }
 }

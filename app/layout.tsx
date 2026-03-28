@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Space_Grotesk, IBM_Plex_Mono } from 'next/font/google';
 import './globals.css';
+import TelemetryClient from './telemetry-client';
 
 const spaceGrotesk = Space_Grotesk({
   subsets: ['latin'],
@@ -28,6 +29,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${spaceGrotesk.variable} ${ibmPlexMono.variable}`}>
       <body className="font-sans bg-bg text-white antialiased min-h-screen">
+        <TelemetryClient />
         {children}
       </body>
     </html>

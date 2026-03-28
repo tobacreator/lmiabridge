@@ -4,6 +4,7 @@ import connectToDatabase from '@/lib/mongodb';
 import WageCache from '@/lib/models/WageCache';
 import nocJobBankIds from '@/data/noc-jobbank-ids.json';
 import AgentRun from '@/lib/models/AgentRun';
+import { logTelemetryEvent } from '@/lib/telemetry';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,6 +28,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const { nocCode, province } = await req.json();
+    const requestPath = req.nextUrl?.pathname;
 
     // Look up Job Bank ID for this NOC code
     const jobBankId = (nocJobBankIds as Record<string, string>)[nocCode];
@@ -48,6 +50,14 @@ export async function POST(req: NextRequest) {
 
     if (cached) {
       console.log(`[Wage Lookup] Cache HIT for NOC ${nocCode} / ${province}`);
+      await logTelemetryEvent(req, {
+        type: 'agent_cache_hit',
+        path: requestPath,
+        agent: 'WAGE_LOOKUP',
+        runId: cached.tinyfishRunId,
+        status: 'CACHED',
+        meta: { nocCode, province },
+      });
       return NextResponse.json({
         ...cached.data,
         nocCode,
@@ -58,6 +68,13 @@ export async function POST(req: NextRequest) {
     }
 
     console.log(`[Wage Lookup] Cache MISS for NOC ${nocCode} / ${province} — calling TinyFish with Job Bank ID ${jobBankId}`);
+    await logTelemetryEvent(req, {
+      type: 'agent_start',
+      path: requestPath,
+      agent: 'WAGE_LOOKUP',
+      status: 'RUNNING',
+      meta: { nocCode, province, jobBankId },
+    });
     const searchUrl = `https://www.jobbank.gc.ca/marketreport/wages-occupation/${jobBankId}/${province}`;
     const goal = `This is a Job Bank wage report page for a specific occupation in Canada.
 Find and extract:
@@ -165,6 +182,15 @@ Return ONLY this JSON:
         await AgentRun.create({ agent: 'WAGE_LOOKUP', runId: tfResult.runId || 'unknown', status: 'COMPLETE', duration, meta: { nocCode, province } });
       } catch (e) { console.error('[Wage Lookup] AgentRun save error:', e); }
 
+      await logTelemetryEvent(req, {
+        type: 'agent_complete',
+        path: requestPath,
+        agent: 'WAGE_LOOKUP',
+        runId: tfResult.runId,
+        status: 'COMPLETE',
+        meta: { nocCode, province, duration },
+      });
+
       return NextResponse.json({
         ...tfResult.result,
         nocCode,
@@ -177,12 +203,29 @@ Return ONLY this JSON:
     // No result — return error
     const duration = Date.now() - startTime;
     console.error(`[Wage Lookup] No result after ${duration}ms. Cancelled: ${tfResult.cancelled}`);
+
+    await logTelemetryEvent(req, {
+      type: 'agent_complete',
+      path: requestPath,
+      agent: 'WAGE_LOOKUP',
+      runId: tfResult.runId,
+      status: tfResult.cancelled ? 'CANCELLED' : 'FAILED',
+      meta: { nocCode, province, duration },
+    });
+
     return NextResponse.json({
       error: tfResult.cancelled ? 'TinyFish run was cancelled' : 'No wage data extracted',
       nocCode,
       province
     }, { status: 502 });
   } catch (error: any) {
+    await logTelemetryEvent(req, {
+      type: 'agent_error',
+      path: req.nextUrl?.pathname,
+      agent: 'WAGE_LOOKUP',
+      status: 'FAILED',
+      meta: { message: error?.message },
+    });
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

@@ -4,6 +4,7 @@ import JobPosting from '@/lib/models/JobPosting';
 import Employer from '@/lib/models/Employer'; // Ensure Employer model is registered
 import agentops from '@/lib/agentops';
 import AgentRun from '@/lib/models/AgentRun';
+import { logTelemetryEvent } from '@/lib/telemetry';
 
 export const dynamic = 'force-dynamic';
 // export const runtime = 'edge';
@@ -33,8 +34,17 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const { nocCode, province } = body;
+    const requestPath = req.nextUrl?.pathname;
     const searchUrl = `https://www.jobbank.gc.ca/jobsearch/jobsearch?searchstring=&locationstring=${encodeURIComponent(province)}&mid=&noc=${nocCode}&fsrc=16`;
     const goal = "Find all job listings on this page. For each job extract: jobTitle, employer, location, salary (if shown), postedDate, jobUrl. Return as JSON array named 'jobs'. If no jobs found, return empty array.";
+
+    await logTelemetryEvent(req, {
+      type: 'agent_start',
+      path: requestPath,
+      agent: 'JOB_SCAN',
+      status: 'RUNNING',
+      meta: { nocCode, province },
+    });
 
     const response = await fetch(TINYFISH_URL, {
       method: 'POST',
@@ -103,8 +113,10 @@ export async function POST(req: NextRequest) {
                 try {
                     const data = JSON.parse(trimmed.slice(6));
                     if (data.run_id) runId = data.run_id;
-                    if (data.type === 'COMPLETE' || data.resultJson) {
-                        resultJson = data.resultJson;
+                    if (data.type === 'COMPLETE') {
+                        resultJson = data.result || data.resultJson;
+                    } else if (data.result || data.resultJson) {
+                        resultJson = data.result || data.resultJson;
                     }
                 } catch (e) {}
             }
@@ -168,6 +180,16 @@ export async function POST(req: NextRequest) {
           await connectToDatabase();
           await AgentRun.create({ agent: 'JOB_SCAN', runId: runId || 'unknown', status: 'COMPLETE', duration });
         } catch (e) { console.error('[Job Scan] AgentRun save error:', e); }
+
+        await logTelemetryEvent(req, {
+          type: 'agent_complete',
+          path: requestPath,
+          agent: 'JOB_SCAN',
+          runId,
+          status: 'COMPLETE',
+          meta: { nocCode, province, duration },
+        });
+
         try {
           await writer.close();
         } catch (e) {}
@@ -185,6 +207,13 @@ export async function POST(req: NextRequest) {
 
   } catch (error: any) {
     console.error('[Job Scan] Request Error:', error);
+    await logTelemetryEvent(req, {
+      type: 'agent_error',
+      path: req.nextUrl?.pathname,
+      agent: 'JOB_SCAN',
+      status: 'FAILED',
+      meta: { message: error?.message },
+    });
     // Fallback to MongoDB seed jobs on outer error
     try {
       await connectToDatabase();

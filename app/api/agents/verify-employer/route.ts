@@ -3,6 +3,7 @@ import connectToDatabase from '@/lib/mongodb';
 import Employer from '@/lib/models/Employer';
 import agentops from '@/lib/agentops';
 import AgentRun from '@/lib/models/AgentRun';
+import { logTelemetryEvent } from '@/lib/telemetry';
 
 export const dynamic = 'force-dynamic';
 // export const runtime = 'edge';
@@ -27,6 +28,15 @@ export async function POST(req: NextRequest) {
 
   try {
     const { companyName, province, craBN } = await req.json();
+    const requestPath = req.nextUrl?.pathname;
+
+    await logTelemetryEvent(req, {
+      type: 'agent_start',
+      path: requestPath,
+      agent: 'VERIFY_EMPLOYER',
+      status: 'RUNNING',
+      meta: { companyName, province },
+    });
     const searchUrl = "https://www.ic.gc.ca/app/scr/cc/CorporationsCanada/fdrlCrpSrch.html";
     const goal = `Navigate to the search page. In the corporate name search field, enter the LEGAL NAME part of the company — if the input contains brackets like 'Clio (Themis Solutions Inc.)', search for only 'Themis Solutions Inc.' without the trading name.
 
@@ -163,6 +173,16 @@ Only return found: false if there are absolutely zero results after trying multi
           await connectToDatabase();
           await AgentRun.create({ agent: 'VERIFY_EMPLOYER', runId: runId || 'unknown', status: resultJson ? 'COMPLETE' : 'FAILED', duration, meta: { companyName } });
         } catch (e) { console.error('[Verify Employer] AgentRun save error:', e); }
+
+        await logTelemetryEvent(req, {
+          type: 'agent_complete',
+          path: requestPath,
+          agent: 'VERIFY_EMPLOYER',
+          runId,
+          status: resultJson ? 'COMPLETE' : 'FAILED',
+          meta: { companyName, duration },
+        });
+
         try {
           await writer.close();
         } catch (e) {}
@@ -173,6 +193,13 @@ Only return found: false if there are absolutely zero results after trying multi
       headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive', 'X-Accel-Buffering': 'no' }
     });
   } catch (error: any) {
+    await logTelemetryEvent(req, {
+      type: 'agent_error',
+      path: req.nextUrl?.pathname,
+      agent: 'VERIFY_EMPLOYER',
+      status: 'FAILED',
+      meta: { message: error?.message },
+    });
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

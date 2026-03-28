@@ -1,0 +1,296 @@
+{
+  "version": "2.0",
+  "title": "LMIABridge Demo - CORRECTED Spec (Transcript-to-Screen Mapping)",
+  "total_duration_seconds": 180,
+  "audio_source": "voiceover_final.m4a with 1.14x speedup",
+  "note": "EVERY screen is matched to actual keyword from transcript. Cross-verified against available PNG files.",
+  "timeline": [
+    {
+      "segment": 1,
+      "start_time": "00:00:00",
+      "end_time": "00:00:25",
+      "duration": 25,
+      "screen_file": "employer/01_homepage.png",
+      "keywords": "Canada needs half a million immigrants... sustain its economy... broken... six thousand dollars... fraudsters... thirty thousand... LMIABridge fixes",
+      "narration": "Problem statement opening",
+      "requirements": "STATIC HOMEPAGE - No transitions. Let narration dominate. Problem statement clear.",
+      "note": "Use 01_homepage if exists, else 22_homepage_close"
+    },
+    {
+      "segment": 2,
+      "start_time": "00:00:25",
+      "end_time": "00:00:33",
+      "duration": 8,
+      "screen_file": "employer/02_employer_form_empty.png",
+      "keywords": "Let me show you... real scenario... Clio... legal tech... needs software developer",
+      "narration": "Setting up scenario with empty form",
+      "requirements": "Empty form ready to fill. Transition moment.",
+      "note": ""
+    },
+    {
+      "segment": 3,
+      "start_time": "00:00:33",
+      "end_time": "00:00:41",
+      "duration": 8,
+      "screen_file": "employer/04_employer_form_filled.png",
+      "keywords": "Themis Solutions Inc, NOC-21232, Ontario... Watch what happens when we enter the wage",
+      "narration": "All form fields populated with demo data",
+      "requirements": "Company name, NOC, location, all fields VISIBLE and READABLE",
+      "note": "Use 04_employer_form_filled (not 04b_full unless needed)"
+    },
+    {
+      "segment": 4,
+      "start_time": "00:00:41",
+      "end_time": "00:00:45",
+      "duration": 4,
+      "screen_file": "employer/05_wage_check_loading.png",
+      "keywords": "A Tinyfish web agent just navigated",
+      "narration": "Agent starting to work",
+      "requirements": "Loading spinner or agent initialization visible. Transition to animation.",
+      "note": "Brief hold before animation starts"
+    },
+    {
+      "segment": 5,
+      "start_time": "00:00:45",
+      "end_time": "00:00:51",
+      "duration": 6,
+      "animation_set": "wage_loading",
+      "frame_count": 8,
+      "frame_duration": 0.75,
+      "keywords": "and pulled the ESDC median wage",
+      "narration": "Agent processing wage data",
+      "requirements": "ANIMATION - Show agent actively working. Real-time data extraction visual.",
+      "note": "Let animation play. Agent should appear to be querying live data."
+    },
+    {
+      "segment": 6,
+      "start_time": "00:00:51",
+      "end_time": "00:01:00",
+      "duration": 9,
+      "screen_file": "employer/06_wage_compliant.png",
+      "keywords": "forty-eight dollars and eight cents per hour... Clio is offering fifty-two dollars... above median, wage compliant... LMIA wage requirements satisfied",
+      "narration": "CRITICAL: Wage compliance result - MOST IMPORTANT SCREEN",
+      "requirements": "⭐ MUST HOLD FOR 9 SECONDS. GREEN CHECKMARK. $48.08 MEDIAN. $52.88 OFFERED. Both numbers fully readable and visible. User reads numbers while hearing them spoken.",
+      "note": "LONGEST HOLD TIME. Most important data point. If this screen isn't readable, VC pitch fails. Verify in actual PNG that both dollar amounts are displayed."
+    },
+    {
+      "segment": 7,
+      "start_time": "00:01:00",
+      "end_time": "00:01:05",
+      "duration": 5,
+      "screen_file": "employer/07_tinyfish_verify_start.png",
+      "keywords": "Now we verify Cleo as a legitimate Canadian... not a database lookup",
+      "narration": "Verification process beginning",
+      "requirements": "Verification screen or agent starting. Transition to verification animation.",
+      "note": "Show agent initializing for corporate verification"
+    },
+    {
+      "segment": 8,
+      "start_time": "00:01:05",
+      "end_time": "00:01:13",
+      "duration": 8,
+      "animation_set": "verify",
+      "frame_count": 12,
+      "frame_duration": 0.67,
+      "keywords": "A live Tinyfish agent navigating the Canada Business Registry... This is fraud prevention. No fake employer",
+      "narration": "Agent running verification check",
+      "requirements": "ANIMATION - Agent actively querying registry. Messages streaming. Show real-time work happening.",
+      "note": "Build trust by showing live verification in action"
+    },
+    {
+      "segment": 9,
+      "start_time": "00:01:13",
+      "end_time": "00:01:21",
+      "duration": 8,
+      "screen_file": "employer/08_tinyfish_verify_complete.png",
+      "keywords": "Themis Solution verified. Corporation number six eight nine four seven nine eight. Under sixty seconds",
+      "narration": "Verification complete with corporate number",
+      "requirements": "GREEN CHECKMARK. Verified status. Corporation number visible. Timestamp showing ~60 seconds.",
+      "note": "Proof of successful verification. Show authority and speed."
+    },
+    {
+      "segment": 10,
+      "start_time": "00:01:21",
+      "end_time": "00:01:27",
+      "duration": 6,
+      "screen_file": "employer/09_dashboard_overview.png",
+      "keywords": "Cleo lands on their Enterprise Compliance Dashboard. Reputation score eighty out of one hundred",
+      "narration": "Dashboard display with reputation score",
+      "requirements": "Dashboard layout. Reputation score 80/100 clearly visible. Trusted Partner status.",
+      "note": ""
+    },
+    {
+      "segment": 11,
+      "start_time": "00:01:27",
+      "end_time": "00:01:37",
+      "duration": 10,
+      "screen_file": "employer/12_advertising_calendar.png",
+      "keywords": "Now Clio's LMIA pathway. Clio started advertising three weeks ago. Jobbank, LinkedIn, Indeed. Calendar builds itself from start date. Four weeks total. ESDC regulation satisfied",
+      "narration": "LMIA regulatory pathway with advertising calendar",
+      "requirements": "Calendar showing: Job Bank (complete), LinkedIn (complete), Indeed (in progress). Dates visible. Four-week timeline implied.",
+      "note": "Show regulatory requirements being tracked automatically"
+    },
+    {
+      "segment": 12,
+      "start_time": "00:01:37",
+      "end_time": "00:01:52",
+      "duration": 15,
+      "multi_screen": [
+        {
+          "position": "00:01:37",
+          "file": "employer/13_transition_plan.png",
+          "hold": 5,
+          "keywords": "Or Clio can select the Global Talent Stream, GTS Category B. No advertising needed. Fourteen business days. AI generates the transition plan automatically"
+        },
+        {
+          "position": "00:01:42",
+          "file": "employer/15_matched_workers.png",
+          "hold": 5,
+          "keywords": "and Clio already has a match. Chidera Obi, ninety-six out of one hundred"
+        },
+        {
+          "position": "00:01:47",
+          "file": "employer/17_analysis_modal_complete.png",
+          "hold": 5,
+          "keywords": "NOC alignment one hundred. Wage compliance ninety. Region one hundred. Language ninety-five. Education ninety-five. Total: ninety-six out of one hundred"
+        }
+      ],
+      "narration": "Transition plan, matched worker, and detailed score breakdown",
+      "requirements": "Transition plan → Shows alternate GTS pathway. Matched workers card → Shows Chidera 96/100. Analysis modal → Shows all 5 scores clearly readable (100, 90, 100, 95, 95).",
+      "note": "THREE rapid transitions. Each screen approximately 5 seconds. Last screen must hold analysis/scores visible while narration completes."
+    },
+    {
+      "segment": 13,
+      "start_time": "00:01:52",
+      "end_time": "00:02:04",
+      "duration": 12,
+      "screen_file": "worker/01_worker_landing.png",
+      "keywords": "Total ninety-six out of one hundred... Now the worker side. Chidera Obi, senior software engineer, Lagos, Nigeria",
+      "narration": "Transition to worker journey introduction",
+      "requirements": "Worker intro screen. Clean transition from employer to worker perspective.",
+      "note": "Narrative shift: 'Now the worker side...'"
+    },
+    {
+      "segment": 14,
+      "start_time": "00:02:04",
+      "end_time": "00:02:11",
+      "duration": 7,
+      "screen_file": "worker/03_worker_form_step1_filled.png",
+      "keywords": "NOC-21232, bachelor's degree, five-year experience, CLB eleven. This matches Cleo requirement",
+      "narration": "Worker qualifications form",
+      "requirements": "NOC, degree level, experience years, English proficiency (CLB) all VISIBLE and READABLE.",
+      "note": ""
+    },
+    {
+      "segment": 15,
+      "start_time": "00:02:11",
+      "end_time": "00:02:19",
+      "duration": 8,
+      "screen_file": "worker/05_worker_form_step2_filled.png",
+      "keywords": "One hundred five thousand dollars expected. Cleo is offering one hundred ten thousand. Skills map directly to their stack",
+      "narration": "Salary expectations and skills alignment",
+      "requirements": "Salary expectation ($105k) and Offered ($110k) visible. Skills tags visible: Ruby on Rails, React, PostgreSQL match tech stack.",
+      "note": ""
+    },
+    {
+      "segment": 16,
+      "start_time": "00:02:19",
+      "end_time": "00:02:29",
+      "duration": 10,
+      "animation_set": "job_scan",
+      "frame_count": 25,
+      "frame_duration": 0.4,
+      "keywords": "Now a live Tinyfish web agent extracts real NOC-21232 in Ontario from the Canadian job market. Live government data, not cached, not mocked. Done. Twenty-five active software developers",
+      "narration": "HERO MOMENT: Job Bank agent scanning for real job postings",
+      "requirements": "⭐ HERO MOMENT - 10 SECONDS of pure animation. Agent visibly extracting jobs from Job Bank. Progress messages visible. Shows 'Live government data' in action. Real-time visual proof of concept.",
+      "note": "THIS IS YOUR MOST IMPRESSIVE MOMENT. Let it breathe. Don't cut it short. 25 frames = 10 seconds of visual proof that agent is working on actual government data."
+    },
+    {
+      "segment": 17,
+      "start_time": "00:02:29",
+      "end_time": "00:02:38",
+      "duration": 9,
+      "screen_file": "worker/09_match_scores_complete.png",
+      "keywords": "Ninety-six out of one hundred. NOC perfect. Wage above expectation. Region match. Language competitive. GTS Category B eligible. Chidera could be in Toronto in under six weeks total",
+      "narration": "Match scores and eligibility confirmation",
+      "requirements": "All 5 score bars visible and READABLE showing final values. NOC 100, Wage 100+, Region 100, Language 95+, Education 95+. GTS eligible. Timeline: 6 weeks to Canada.",
+      "note": "Confidence moment. Show all metrics aligned for successful match."
+    },
+    {
+      "segment": 18,
+      "start_time": "00:02:38",
+      "end_time": "00:02:47",
+      "duration": 9,
+      "screen_file": "worker/14_verify_page.png",
+      "keywords": "One more thing. LMIA fraud costs workers thirty thousand dollars. Our free fraud checker verifies any employer",
+      "narration": "Fraud checker introduction",
+      "requirements": "Verify page showing clean input field. Fraud prevention value prop clear.",
+      "note": "Transition to fraud prevention feature"
+    },
+    {
+      "segment": 19,
+      "start_time": "00:02:47",
+      "end_time": "00:02:57",
+      "duration": 10,
+      "multi_screen": [
+        {
+          "position": "00:02:47",
+          "file": "worker/15_verify_input_filled.png",
+          "hold": 2,
+          "keywords": "(employer name entry)"
+        },
+        {
+          "position": "00:02:49",
+          "animation": "verify_agent",
+          "frame_count": 8,
+          "frame_duration": 1.0,
+          "hold": 8,
+          "keywords": "checking against ESDC's non-compliant employer list in real-time"
+        }
+      ],
+      "narration": "Fraud check running - verifying employer against official list",
+      "requirements": "Input filled with company name → Agent running verification animation. Show checking against ESDC list in real-time.",
+      "note": "Trust-building sequence. Show anti-fraud mechanism working."
+    },
+    {
+      "segment": 20,
+      "start_time": "00:02:57",
+      "end_time": "00:03:05",
+      "duration": 8,
+      "screen_file": "worker/17_verify_result_clean.png",
+      "keywords": "Themis Solutions verified. Clean. Every check is auditable, timestamped permanently",
+      "narration": "Verification result - clean and auditable",
+      "requirements": "GREEN CHECKMARK. 'Verified' status. 'Clean' status. Auditable reference ID visible. Timestamp permanent.",
+      "note": "Final proof of fraud prevention working"
+    },
+    {
+      "segment": 21,
+      "start_time": "00:03:05",
+      "end_time": "00:03:12",
+      "duration": 7,
+      "screen_file": "employer/22_homepage_close.png",
+      "keywords": "Built in seven days using Tinyfish Web Agent. Real employer, real candidate, real government data",
+      "narration": "Close - return to homepage with credibility statements",
+      "requirements": "Homepage. Clean background. Let narration speak about what was built.",
+      "note": ""
+    },
+    {
+      "segment": 22,
+      "start_time": "00:03:12",
+      "end_time": "00:03:25",
+      "duration": 13,
+      "screen_file": "employer/22_homepage_close.png",
+      "keywords": "Built in the Tinyfish Accelerator",
+      "narration": "Final confidence moment - accelerator backing",
+      "requirements": "STATIC HOMEPAGE. Pure confidence. Let narration land. 13 seconds of your voice over still image builds credibility.",
+      "note": "Final emotional punctuation. Your tone matters more than visuals here."
+    }
+  ],
+  "critical_sync_points": [
+    "Segment 6 ($48.08 vs $52.88): MUST be readable. 9-second hold. Financial credibility.",
+    "Segment 16 (Job scan): 10-second animation hero moment. This is the wow factor.",
+    "Segment 12 (Scores): Analysis modal shows all 5 scores. Readable. Trustworthy.",
+    "Segment 22 (Close): Static homepage, pure narration power. Let voice land."
+  ],
+  "rebuild_instructions": "Replace VIDEO_SPEC.json segment-by-segment with these exact files. Verify each PNG exists in demo-assets/ before building."
+}
